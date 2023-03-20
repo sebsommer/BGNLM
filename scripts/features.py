@@ -104,8 +104,9 @@ class Multiplication:
         return 'Multiplication'
 
 class Linear:
-    def __init__(self, feature):
+    def __init__(self, feature, values):
         self.feature = feature
+        self.values = values
         self.complexity = 0
 
     def __str__(self):

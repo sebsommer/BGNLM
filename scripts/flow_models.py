@@ -6,7 +6,6 @@ import torch.nn.functional as F
 
 DEVICE = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 
-
 Z_FLOW_TYPE = 'IAF'
 R_FLOW_TYPE = 'IAF'
 
@@ -15,7 +14,7 @@ class PropagateFlow(nn.Module):
         super().__init__()
 
         if transform == 'IAF':
-            self.transforms = nn.ModuleList([IAF(dim, h_sizes=[75,75,75,75]) for i in range(num_transforms)])
+            self.transforms = nn.ModuleList([IAF(dim, h_sizes=[75,75]) for i in range(num_transforms)])
         else:
             print('Transform not implemented')
 
@@ -28,7 +27,6 @@ class PropagateFlow(nn.Module):
 
 class MaskedLinear(nn.Linear):
     """ same as Linear except has a configurable mask on the weights """
-
     def __init__(self, in_features, out_features, bias=True):
         super().__init__(in_features, out_features, bias)
         self.register_buffer('mask', torch.ones(out_features, in_features))
@@ -111,9 +109,9 @@ class MADE(nn.Module):
 
 class IAF(nn.Module):
     ### for the variable selection simulation it works best with smaller networks
-    def __init__(self, dim, h_sizes=[75, 75]):
+    def __init__(self, dim, h_sizes=[75,75]):
         super().__init__()
-        self.net = MADE(nin=dim, hidden_sizes=h_sizes, nout=2 * dim)
+        self.net = MADE(nin=dim, hidden_sizes=h_sizes, nout=2*dim)
     
     def forward(self, x):  # x -> z
         out = self.net(x)
@@ -159,7 +157,7 @@ class BayesianLinearFlow(nn.Module):
         self.bias_mu = nn.Parameter(torch.Tensor(out_features).uniform_(-0.01, 0.01))
         self.bias_rho = nn.Parameter(torch.Tensor(out_features).uniform_(-5, -4))
 
-        # bias prior is also N(0,1)
+        # bias prior is N(0,1)
         self.bias_mu_prior = torch.zeros(out_features, device=DEVICE)
         self.bias_sigma_prior = (self.bias_mu_prior + 1.0).to(DEVICE)
 
@@ -167,7 +165,7 @@ class BayesianLinearFlow(nn.Module):
         # read MNF paper for more about what this means
         # https://arxiv.org/abs/1703.01961
         self.q0_mean = nn.Parameter(0.1 * torch.randn(in_features))
-        self.q0_log_var = nn.Parameter(-9 + 0.1 * torch.randn(in_features))
+        self.q0_log_var = nn.Parameter(-9 + 0.1 * torch.randn(in_features)) #nn.Parameter(0.5 + 0.1 * torch.randn(in_features))
         self.r0_c = nn.Parameter(0.1 * torch.randn(in_features))
         self.r0_b1 = nn.Parameter(0.1 * torch.randn(in_features))
         self.r0_b2 = nn.Parameter(0.1 * torch.randn(in_features))
@@ -187,13 +185,11 @@ class BayesianLinearFlow(nn.Module):
         return zs[-1], log_det_q.squeeze()
 
         # forward path
-
-    def forward(self, input, sample=False, calculate_log_probs=False):
+    def forward(self, input, sample=True, calculate_log_probs=False):
         ### perform the forward pass
         self.alpha_q = 1 / (1 + torch.exp(-self.lambdal))
         self.weight_sigma = torch.log1p(torch.exp(self.weight_rho))
         self.bias_sigma = torch.log1p(torch.exp(self.bias_rho))
-
         z_k, _ = self.sample_z(input.size(0))
         e_w = self.weight_mu * self.alpha_q * z_k
         var_w = self.alpha_q * (self.weight_sigma ** 2 + (1 - self.alpha_q) * (self.weight_mu * z_k) ** 2)
@@ -201,13 +197,12 @@ class BayesianLinearFlow(nn.Module):
         var_b = torch.mm(input ** 2, var_w.T) + self.bias_sigma ** 2
         eps = torch.randn(size=(var_b.size()), device=DEVICE)
         activations = e_b + torch.sqrt(var_b) * eps
-
         ### compute the ELBO
         z2, log_det_q = self.sample_z()
         W_mean = z2 * self.weight_mu * self.alpha_q
         W_var = self.alpha_q * (self.weight_sigma ** 2 + (1 - self.alpha_q) * (self.weight_mu * z2) ** 2)
         log_q0 = (-0.5 * torch.log(torch.tensor(math.pi)) - 0.5 * self.q0_log_var
-                  - 0.5 * ((self.z - self.q0_mean) ** 2 / self.q0_log_var.exp())).sum()
+                - 0.5 * ((self.z - self.q0_mean) ** 2 / self.q0_log_var.exp())).sum()
         log_q = -log_det_q + log_q0
 
         act_mu = self.r0_c @ W_mean.T
@@ -229,5 +224,6 @@ class BayesianLinearFlow(nn.Module):
                     + (1 - self.alpha_q) * torch.log((1 - self.alpha_q) / (1 - self.alpha_prior))).sum()
 
         self.kl = kl_bias + kl_weight + log_q - log_r
+
 
         return activations

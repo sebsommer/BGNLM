@@ -39,21 +39,31 @@ class Exp(Non_linear):
         super().__init__(feature)
 
     def __str__(self):
-        return 'exp(-abs(' + str(self.feature) + '))'
+        return 'exp(abs(' + str(self.feature) + '))'
 
     def evaluate(self, data):
-        return np.exp(-np.abs(data))
+        return np.exp(np.abs(data)+0.000001)
 
 class Ln(Non_linear):
     def __init__(self, feature):
         super().__init__(feature)
 
     def __str__(self):
-        return 'ln(abs(' + str(self.feature) + ') + 1)'
+        return 'ln(abs(' + str(self.feature) + '))'
 
     def evaluate(self, data):
-        return np.log1p(np.abs(data))
+        return np.log(np.abs(data)+0.000001)
 
+class Ln1p(Non_linear):
+    def __init__(self, feature):
+        super().__init__(feature)
+
+    def __str__(self):
+        return 'ln(abs(' + str(self.feature) + '1))'
+
+    def evaluate(self, data):
+        return np.log1p(np.abs(data)+0.000001)
+    
 class x72(Non_linear):
     def __init__(self, feature):
         super().__init__(feature)

@@ -1,11 +1,9 @@
 import math
-import time
-import sys
-import getopt
 import matplotlib.pyplot as plt
-import seaborn as sns
+# import seaborn as sns
 import torch.nn.functional as F
 # from tensorboardx import SummaryWriter
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -13,32 +11,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 import pandas as pd
 
-def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 50, fill = '█', printEnd = "\r"):
-    """
-    Call in a loop to create terminal progress bar
-    @params:
-        iteration   - Required  : current iteration (Int)
-        total       - Required  : total iterations (Int)
-        prefix      - Optional  : prefix string (Str)
-        suffix      - Optional  : suffix string (Str)
-        decimals    - Optional  : positive number of decimals in percent complete (Int)
-        length      - Optional  : character length of bar (Int)
-        fill        - Optional  : bar fill character (Str)
-        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
-    """
-    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
-    filledLength = int(length * iteration // total)
-    bar = fill * filledLength + '-' * (length - filledLength)
-    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end = printEnd)
-    # Print New Line on Complete
-    if iteration == total: 
-        print()
-
-np.random.seed(100)
-
-st = time.time()
-
-VERBOSE = False
+np.random.seed(1)
 
 # select the device
 DEVICE = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
@@ -53,27 +26,18 @@ else:
 # setting batch size and epochs
 BATCH_SIZE = 500
 epochs = 300
-custom_loss = None
-LEARNIG_RATE = 0.01
 
+Z_FLOW_TYPE = 'IAF'
+R_FLOW_TYPE = 'IAF'
 USE_FLOWS = True
-if USE_FLOWS:
-    print("Flows are used!")
-else:
-    print("Mean-field approximations are used!")
 
-N_IAFLAYERS = 2
+dataset_nr = 3
 
-N_GENERATIONS  = 15
-EXTRA_FEATURES = 40
-COMPLEXITY_MAX = 10
-
-dataset_nr = '3'
-
-norm = True
+# import the data
+# taken from https://github.com/aliaksah/EMJMCMC2016/tree/master/examples/Simulated%20Logistic%20Data%20With%20Multiple%20Modes%20(Example%203)
 
 #binomial
-if dataset_nr == '1':
+if dataset_nr == 1:
     x_df = pd.read_csv(
         'https://raw.githubusercontent.com/aliaksah/EMJMCMC2016/master/supplementaries/BGNLM/breast%20cancer/test.csv').iloc[
            :, 1:-1]
@@ -93,14 +57,9 @@ if dataset_nr == '1':
               :, -1].to_numpy()
 
     family = 'binomial'
-    
-    BATCH_SIZE = 20
-    epochs = 300
-
-    print("Data: Breast cancer")
 
 #binomial
-elif dataset_nr == '2':
+elif dataset_nr == 2:
     x_df = pd.read_csv(
         'https://raw.githubusercontent.com/aliaksah/EMJMCMC2016/master/examples/Simulated%20Logistic%20Data%20With%20Multiple%20Modes%20(Example%203)/sim3-X.txt',
         header=None)
@@ -121,10 +80,9 @@ elif dataset_nr == '2':
     x_train, x_test, y_train, y_test = x_train.to_numpy(), x_test.to_numpy(), y_train.to_numpy(), y_test.to_numpy()
 
     family = 'binomial'
-    print("Data: Sim-data 1, binomial")
 
 #gaussian
-elif dataset_nr == '3':
+elif dataset_nr == 3:
     te_ids = pd.read_csv("https://raw.githubusercontent.com/aliaksah/EMJMCMC2016/master/supplementaries/BGNLM/abalone%20age/teid.csv", header = 1, sep = ";").iloc[:,-1] -1
     df = pd.read_csv('https://raw.githubusercontent.com/aliaksah/EMJMCMC2016/master/supplementaries/BGNLM/abalone%20age/abalone.data', header=None)
     x_df = df.iloc[:,:-1]
@@ -144,149 +102,41 @@ elif dataset_nr == '3':
 
     family = 'gaussian'
 
-    print("Data: Abalone")
-
-# gaussian
-elif dataset_nr == '4':
-
-    df = pd.read_csv(
-        'https://raw.githubusercontent.com/aliaksah/EMJMCMC2016/master/supplementaries/BGNLM/kepler%20and%20mass/exa1.csv')#[:,1:10]
-    x_df = df.iloc[:, [1,2,3,5,6,7,8,9,10]]
-    y_df = df.iloc[:, 4]
-
-    x_test = x_df
-    y_test =  y_df
-
-    x_train = x_df
-    y_train = y_df
-
-    x_train, x_test, y_train, y_test = x_train.to_numpy(), x_test.to_numpy(), y_train.to_numpy(), y_test.to_numpy()
-
-    family = 'gaussian'
-    print("Data: Kepler's third law")
-    BATCH_SIZE = 500
-    epochs = 300
-    class KeplerLoss(nn.Module):
-        def __init__(self):
-            super(KeplerLoss, self).__init__()
-
-        def forward(self, output, target):
-            criterion = nn.MSELoss(reduction='sum')
-            loss = criterion(output, target)
-            return loss + 5*np.pi
-    
-    custom_loss = KeplerLoss() #Define this to avoid getting negative values
-
-#gaussian
-elif dataset_nr == '5':
-    df = pd.read_csv(
-        'slice_localization.txt',
-        header=1)
-    
-    df = df.dropna(axis = 0)
-
-    x_df = df.iloc[:, 1:-1]
-    y_df = df.iloc[:, -1]
-
-    # Split:
-    x_train = x_df.sample(frac=0.8, random_state=100)
-    y_train = y_df.sample(frac=0.8, random_state=100)
-
-    x_test = x_df[~x_df.index.isin(x_train.index)]
-    y_test = y_df[~y_df.index.isin(y_train.index)]
-
-    x_train, x_test, y_train, y_test = x_train.to_numpy(), x_test.to_numpy(), y_train.to_numpy(), y_test.to_numpy()
-
-    family = 'gaussian'
-    
-    print("Data: CT slice localization, normal")
-
-    BATCH_SIZE = 2000
-    epochs = 300
-    custom_loss = None
-    LEARNIG_RATE = 0.01
-
-    norm = False
-
-#gaussian
-elif dataset_nr == 'sim1':
-    X = np.random.normal(0,1, (10000, 10))
-    beta = np.array([0,0,0,0,0, 1.5, -4, 3, -0.2, 1])
-
-    sigma = 0.001
-    noise = np.random.normal(0,sigma, size = 10000)
-
-    y = X @ beta.T + noise
-
-
-    x_test = X
-    x_train = X
-
-    y_test = y
-    y_train = y
-
-    family = 'gaussian'
-    print("Data: sim-data 1, Normal; mu = 0, sigma =", sigma)
-
-    N_GENERATIONS = 0
-    norm = False
-
-
-def normalize(data: np.array):
-    data_mean = data.mean(axis=0)
-    data_std = data.std(axis=0)
-    return np.divide((data - data_mean), data_std)
-
-#print("SHAPE TRAIN:", x_train.shape, "SHAPE TEST:", x_test.shape)
-
 # normailizing data:
-if norm:
-    x_train = normalize(x_train)
-    x_test = normalize(x_test)
+data_mean = x_train.mean(axis=0)
+data_std = x_train.std(axis=0)
+x_train = (x_train - data_mean) / data_std
 
-#dtrain = torch.from_numpy(np.column_stack((x_train, y_train)))
-#dtest = torch.from_numpy(np.column_stack((x_test, y_test)))
+test_mean = x_test.mean(axis=0)
+test_std = x_test.std(axis=0)
+x_test = (x_test - test_mean) / test_std
 
-TRAIN_SIZE = x_train.shape[0]
+dtrain = torch.tensor(np.column_stack((x_train, y_train)), dtype=torch.float32)
+
+TRAIN_SIZE = len(dtrain)
 NUM_BATCHES = TRAIN_SIZE / BATCH_SIZE
-
-
-Z_FLOW_TYPE = 'IAF'
-R_FLOW_TYPE = 'IAF'
-
-class LogisticRegression(nn.Module):
-    def __init__(self, input_dim, output_dim):
-        super(LogisticRegression, self).__init__()
-        self.linear = torch.nn.Linear(input_dim, output_dim)
-
-    def forward(self, x):
-        outputs = torch.sigmoid(self.linear(x))
-        return outputs
-
-class LinearRegression(torch.nn.Module):
-    def __init__(self, inputSize, outputSize):
-        super(LinearRegression, self).__init__()
-        self.linear = torch.nn.Linear(inputSize, outputSize)
-
-    def forward(self, x):
-        out = self.linear(x)
-        return out
 
 class PropagateFlow(nn.Module):
     def __init__(self, transform, dim, num_transforms):
         super().__init__()
 
         if transform == 'IAF':
-            self.transforms = nn.ModuleList([IAF(dim, h_sizes=[75,75,75,75]) for i in range(num_transforms)])
+            self.transforms = nn.ModuleList([IAF(dim) for i in range(num_transforms)])
         else:
             print('Transform not implemented')
 
     def forward(self, z):
+        #z_list = [f(z) for f in self.transforms]
+        #logdets = [f.log_det() for f in self.transforms]
+
         logdet = 0
         for f in self.transforms:
             z = f(z)
             logdet += f.log_det()
         return z, logdet
+
+### the code for the autoregressive neural network is taken from Andrej Karpathy
+### https://github.com/karpathy/pytorch-made
 
 class MaskedLinear(nn.Linear):
     """ same as Linear except has a configurable mask on the weights """
@@ -395,8 +245,26 @@ class IAF(nn.Module):
     def log_det(self):
         return (torch.log(self.gate + 1e-8)).sum(-1)  # avoid log (0)
 
-class BayesianLinearFlow(nn.Module):
-    def __init__(self, in_features, out_features, num_transforms, alpha_prior):
+class LogisticRegression(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super(LogisticRegression, self).__init__()
+        self.linear = torch.nn.Linear(input_dim, output_dim)
+
+    def forward(self, x):
+        outputs = torch.sigmoid(self.linear(x))
+        return outputs
+
+class LinearRegression(torch.nn.Module):
+    def __init__(self, inputSize, outputSize):
+        super(LinearRegression, self).__init__()
+        self.linear = torch.nn.Linear(inputSize, outputSize)
+
+    def forward(self, x):
+        out = self.linear(x)
+        return out
+
+class BayesianLinearFlows(nn.Module):
+    def __init__(self, in_features, out_features, num_transforms,alpha_prior):
         super().__init__()
 
         self.in_features = in_features
@@ -412,10 +280,9 @@ class BayesianLinearFlow(nn.Module):
 
         # posterior inclusion initialization
         self.lambdal = nn.Parameter(torch.Tensor(out_features, in_features).uniform_(1.5, 2.5))
-        self.alpha_q = torch.empty(size=self.lambdal.shape)
 
-        # inclusion prior
-        self.alpha_prior = alpha_prior.to(DEVICE)
+        # inclusion prior is Bernoulli(0.1)
+        self.alpha_prior =  alpha_prior.to(DEVICE)
 
         # bias mu and rho initialization
         self.bias_mu = nn.Parameter(torch.Tensor(out_features).uniform_(-0.01, 0.01))
@@ -479,16 +346,20 @@ class BayesianLinearFlow(nn.Module):
         mean_r = self.r0_b1.outer(act).mean(-1)  # eq (9) from MNF paper
         log_var_r = self.r0_b2.outer(act).mean(-1)  # eq (10) from MNF paper
         z_b, log_det_r = self.r_flow(z2)
-        log_rb = (-0.5 * torch.log(torch.tensor(math.pi)) - 0.5 * log_var_r - 0.5 * ((z_b[-1] - mean_r) ** 2 / log_var_r.exp())).sum()
+        log_rb = (-0.5 * torch.log(torch.tensor(math.pi)) - 0.5 * log_var_r
+                  - 0.5 * ((z_b[-1] - mean_r) ** 2 / log_var_r.exp())).sum()
         log_r = log_det_r + log_rb
 
-        kl_bias = (torch.log(self.bias_sigma_prior / self.bias_sigma) - 0.5 
-                    + (self.bias_sigma ** 2 + (self.bias_mu - self.bias_mu_prior) ** 2) / (2 * self.bias_sigma_prior ** 2)).sum()
+        kl_bias = (torch.log(self.bias_sigma_prior / self.bias_sigma) - 0.5 + (self.bias_sigma ** 2
+                                                                               + (
+                                                                                           self.bias_mu - self.bias_mu_prior) ** 2) / (
+                           2 * self.bias_sigma_prior ** 2)).sum()
 
-        kl_weight = (self.alpha_q * (torch.log(self.sigma_prior / self.weight_sigma)- 0.5 
-                    + torch.log(self.alpha_q / self.alpha_prior) 
-                    + (self.weight_sigma ** 2 + (self.weight_mu * z2 - self.mu_prior) ** 2) / (2 * self.sigma_prior ** 2))
-                    + (1 - self.alpha_q) * torch.log((1 - self.alpha_q) / (1 - self.alpha_prior))).sum()
+        kl_weight = (self.alpha_q * (torch.log(self.sigma_prior / self.weight_sigma)
+                                     - 0.5 + torch.log(self.alpha_q / self.alpha_prior)
+                                     + (self.weight_sigma ** 2 + (self.weight_mu * z2 - self.mu_prior) ** 2) / (
+                                             2 * self.sigma_prior ** 2))
+                     + (1 - self.alpha_q) * torch.log((1 - self.alpha_q) / (1 - self.alpha_prior))).sum()
 
         self.kl = kl_bias + kl_weight + log_q - log_r
 
@@ -562,20 +433,16 @@ class BayesianLinear(nn.Module):
         return activations
 
 class BayesianNetwork(nn.Module):
-    def __init__(self, p, alpha_prior, family='binomial', useflows = USE_FLOWS, num_transforms = N_IAFLAYERS, special_loss = custom_loss):
+    def __init__(self, p, alpha_prior, family='binomial',useflows = USE_FLOWS):
         super().__init__()
         # set the architecture
         if not useflows:
-            self.l1 = BayesianLinear(p - 1, 1, alpha_prior)
+            self.l1 = BayesianLinear(p - 1, 1, alpha_prior)  # one layer with one neuron i.e. logistic regression
         else:
-            self.l1 = BayesianLinearFlow(p - 1, 1, num_transforms, alpha_prior)
-        
+            self.l1 = BayesianLinearFlows(p - 1, 1,2, alpha_prior)
         self.family = family
-
-        if special_loss is not None:
-            self.loss = special_loss
-        elif self.family == 'binomial':
-            self.loss = nn.BCELoss(reduction='sum')
+        if self.family == 'binomial':
+            self.loss = nn.BCELoss(reduction='sum')  # output is 0 or 1
         elif self.family == 'gaussian':
             self.loss = nn.MSELoss(reduction='sum')
         elif self.family == 'poisson':
@@ -588,17 +455,17 @@ class BayesianNetwork(nn.Module):
 
     def forward(self, x, sample=False):
         x = self.l1(x, sample)
-        if self.family == 'binomial':    
+        if self.family == 'binomial':
             x = torch.sigmoid(x)
         return x
 
     def kl(self):
         return self.l1.kl
 
-def train(net, optimizer, dtrain, p, batch_size=BATCH_SIZE, verbose=VERBOSE):
+def train(net, optimizer, dtrain, p, batch_size=BATCH_SIZE, verbose=False):
     family = net.family
-    net.train()
 
+    net.train()
     old_batch = 0
     accs = []
     for batch in range(int(np.ceil(dtrain.shape[0] / batch_size))):
@@ -625,24 +492,20 @@ def train(net, optimizer, dtrain, p, batch_size=BATCH_SIZE, verbose=VERBOSE):
         print('nll', negative_log_likelihood.item())
         if family == 'binomial':
             print('accuracy =', np.mean(accs))
-    if family == 'binomial':
-        return loss.item(), negative_log_likelihood.item(), np.mean(accs)
-    else:
-        return loss.item(), negative_log_likelihood.item()
+    return loss.item(), negative_log_likelihood.item(),
 
-def test(net, dtest, p, samples = 30, lower_q=0.05, upper_q=0.95, verbose=VERBOSE):
+def test(net, dtest, p, samples = 20, lower_q = 0.05, upper_q = 0.95, verbose=False):
     family = net.family
 
-    net.eval()
     data = dtest[:, 0:p - 1]
     target = dtest[:, -1].squeeze().float()
-    outputs = net(data).detach().cpu().numpy()
-    for _ in range(samples - 1):
-        outputs = np.column_stack((outputs, net(data).detach().cpu().numpy()))
+    outputs = net(data)
+    for _ in range(samples -1):
+        outputs = torch.column_stack((outputs,net(data)))
 
-    outputs_mean = torch.tensor(outputs.mean(axis=1), device=DEVICE)
-    outputs_upper = torch.quantile(outputs_mean,upper_q)
-    outputs_lower = torch.quantile(outputs_mean,lower_q)
+    outputs_mean = outputs.mean(dim=1)
+    outputs_upper = outputs.quantile(upper_q,dim = 1)
+    outputs_lower = outputs.quantile(lower_q, dim = 1)
 
     pred = outputs_mean.cpu().detach().numpy()
 
@@ -659,63 +522,53 @@ def test(net, dtest, p, samples = 30, lower_q=0.05, upper_q=0.95, verbose=VERBOS
         print('nll', negative_log_likelihood.item())
         if family == 'binomial':
             print('accuracy =', acc)
-    else:
-        if family =='binomial':
-            printProgressBar(epochs, epochs, suffix = f"Complete. \tValidation accuracy: {acc}")
-        else:
-            printProgressBar(epochs, epochs, suffix = f"Complete. \tValidation loss (RMSE): {np.sqrt(loss.item()/outputs.shape[0])}")
     if family == 'binomial':
-        return loss.item(), negative_log_likelihood.item(), acc, pred, outputs_upper.cpu().detach().numpy(), outputs_lower.cpu().detach().numpy()
+        return loss.item(), negative_log_likelihood.item(), acc, pred, outputs_upper.detach().cpu().numpy(), outputs_lower.detach().cpu().numpy()
     else:
-        return loss.item(), negative_log_likelihood.item(), pred, outputs_upper.cpu().detach().numpy(), outputs_lower.cpu().detach().numpy()
+        return loss.item(), negative_log_likelihood.item(), pred, outputs_upper.detach().cpu().numpy(), outputs_lower.detach().cpu().numpy()
 
-#Standard prior, all covariates will be included in model:
-def gamma_prior(comps,n,p):
-    return torch.from_numpy(np.exp(-2*np.log1p(comps)-0.0001))
+def var_inference(values, comps, iteration, family, verbose=False):
+    tmpx = torch.tensor(np.column_stack((values.T, y_train)), dtype=torch.float32).to(DEVICE)
 
-def var_inference(values, comps, iteration, family, prior_a = gamma_prior, verbose=VERBOSE, learnig_rate = LEARNIG_RATE):
-    tmpx = torch.tensor(np.column_stack((values, y_train)), dtype=torch.float32).to(DEVICE)
-    
-    n, p = tmpx.shape
-    prior_a = gamma_prior(comps, n, p)
+    data_mean = tmpx.mean(axis=0)[0:-1]
+    data_std = tmpx.std(axis=0)[0:-1]
+    tmpx[:, 0:-1] = (tmpx[:, 0:-1] - data_mean) / data_std
 
-    #print("Prior vals", prior_a)
-
+    prior_a = torch.tensor(np.exp(-np.log1p(comps) - 0.00001), dtype=torch.float32)
+    p = tmpx.shape[1]
     net = BayesianNetwork(p, prior_a, family=family).to(DEVICE)
-    #print([e for e in net.parameters()])
-    optimizer = optim.Adam(net.parameters(), lr=learnig_rate)
+    optimizer = optim.Adam(net.parameters(), lr=0.01)
 
     for epoch in range(epochs):
-        if family == 'binomial':
-            nll, loss, acc = train(net, optimizer, tmpx, p, verbose=verbose)
-        else:
-            nll, loss = train(net, optimizer, tmpx, p, verbose=verbose)
-        if verbose:
-            print('epoch =', epoch)
-            print(f'generation: {iteration}')
-        else:
-            printProgressBar(epoch, epochs, suffix = f"Complete")
-    
-    a = net.l1.alpha_q.data.detach().cpu().numpy().squeeze()
+        nll, loss = train(net, optimizer, tmpx, p, verbose=verbose)
+        print('epoch =', epoch)
+        print(f'generation: {iteration}')
 
+    a = net.l1.alpha_q.data.detach().cpu().numpy().squeeze()
     return a, net
 
-
 # SEB CODE:
-
 class Projection:
-    def __init__(self, features, values, target, g, family, comp, strategy=1, epochs=200):
+    def __init__(self, features, values, g, family, strategy=1):
         self.alphas = np.ones(features.shape[0] + 1)
         self.g = g
         self.family = family
-        self.complexity = comp
         values = np.column_stack([np.ones([values.shape[0], 1], dtype=np.float32), values])
-        self.optimize(features, values, target, epochs, strategy)
+        self.optimize(features, values, strategy)
 
-    def optimize(self, features, values, target, epochs, strategy):
+    def optimize(self, features, values, strategy):
+        if strategy == None:
+            self.get_feature(features, g)
+            self.get_values(values)
         if strategy == 1:
-            tmpx = torch.tensor(np.column_stack((values, target)), dtype=torch.float32).to(DEVICE)
+            tmpx = torch.tensor(np.column_stack((values, y_train)), dtype=torch.float32).to(DEVICE)
+
+            data_mean = tmpx.mean(axis=0)[1:-1]
+            data_std = tmpx.std(axis=0)[1:-1]
+            tmpx[:, 1:-1] = (tmpx[:, 1:-1] - data_mean) / data_std
+
             p = tmpx.shape[1]
+
             if self.family == 'binomial':
                 model = LogisticRegression(p - 1, 1).to(DEVICE)
                 criterion = nn.BCELoss()
@@ -725,7 +578,7 @@ class Projection:
             optimizer = optim.SGD(model.parameters(), lr=0.01)
 
             # Gradient Descent
-            for _ in range(epochs):
+            for _ in range(200):
                 _x = tmpx[:, :-1]
                 _y = tmpx[:, -1]
                 target = Variable(_y).to(DEVICE)
@@ -739,6 +592,7 @@ class Projection:
             parm = {}
             for name, param in model.named_parameters():
                 parm[name] = param.detach().cpu().numpy()
+
             alphas_out = parm['linear.weight'][0]
             self.alphas = alphas_out
             self.feature = self.get_feature(features, alphas_out)
@@ -774,11 +628,10 @@ class Projection:
         return 'Projection'
 
 class Modification:
-    def __init__(self, feature, values, g, comp):
+    def __init__(self, feature, values, g):
         self.f = g(feature[0])
         self.feature = str(self.f)
         self.values = self.f.evaluate(values)
-        self.complexity = comp + 1
 
     def evaluate(self, values):
         return self.f.evaluate(values)
@@ -787,10 +640,9 @@ class Modification:
         return 'Modification'
 
 class Multiplication:
-    def __init__(self, features, values, comp):
+    def __init__(self, features, values):
         self.feature = f'{features[0]}*{features[1]}'
         self.values = values[:, 0] * values[:, 1]
-        self.complexity = comp + 1
 
     def evaluate(self, values):
         return values[:, 0] * values[:, 1]
@@ -799,10 +651,8 @@ class Multiplication:
         return 'Multiplication'
 
 class Linear:
-    def __init__(self, feature, values):
+    def __init__(self, feature):
         self.feature = feature
-        self.values = values
-        self.complexity = 0
 
     def __str__(self):
         return str(self.feature)
@@ -812,6 +662,71 @@ class Linear:
 
     def __name__(self):
         return 'Linear'
+
+def generate_feature(pop, val, fprobs, mprobs, tprobs, family, test_x):
+    rand = np.random.choice(4, size=1, p=fprobs)
+    values = val.copy()
+    # print("!:", values.shape)
+
+    if rand == 0:
+        idx = np.random.choice(pop.shape[0], size=2, p=mprobs, replace=True)
+        mult = Multiplication(pop[idx], values[:, idx])
+        feat, val = mult.feature, mult.values
+        if test_x is not None:
+            test_val = mult.evaluate(test_x[:, idx])
+        else:
+            test_val = None
+        obj = mult
+        # print("0:",val.shape)
+
+    elif rand == 1:
+        idx = np.random.choice(pop.shape[0], size=1, p=mprobs)
+        g = np.random.choice(transformations, p=tprobs)
+        mod = Modification(pop[idx], values[:, idx], g)
+        feat, val = mod.feature, mod.values.ravel()
+        if test_x is not None:
+            test_val = mod.evaluate(test_x[:, idx]).ravel()
+        else:
+            test_val = None
+        obj = mod
+        # print("1:",val.shape)
+
+    elif rand == 2:
+        g = np.random.choice(transformations, p=tprobs)
+        s = np.random.choice([2, 3, 4], size=1)
+        idx = np.random.choice(pop.shape[0], size=s, p=mprobs, replace=False)
+        proj = Projection(pop[idx], values[:, idx], g, family)
+        feat, val = proj.feature, proj.values
+        if test_x is not None:
+            test_val = proj.evaluate(test_x[:, idx])
+        else:
+            test_val = None
+        obj = proj
+        # print("2:",val.shape)
+
+    elif rand == 3:
+        idx = np.random.choice(x_train.shape[1])
+        new = Linear(f'x{idx}')
+        feat, val = str(new), new.evaluate(x_train[:, idx])
+        if test_x is not None:
+            test_val = test_x[:, idx]
+        else:
+            test_val = None
+        obj = new
+        # print("3:",val.shape)
+
+    return feat, val, test_val, obj
+
+# TODO: fix this:
+def get_complexity(feat):
+    complexity = 0
+    for c in feat[1:]:
+        if c == '(' or c == '*' or c == '+' or c == '-':
+            complexity += 1
+    return complexity
+
+def check_collinearity(val, values):
+    return np.any(np.any(val == values, axis=0))
 
 class Non_linear():
     def __init__(self, feature):
@@ -852,31 +767,21 @@ class Exp(Non_linear):
         super().__init__(feature)
 
     def __str__(self):
-        return 'exp(abs(' + str(self.feature) + '))'
+        return 'exp(-abs(' + str(self.feature) + '))'
 
     def evaluate(self, data):
-        return np.exp(np.abs(data)+0.000001)
+        return np.exp(-np.abs(data))
 
 class Ln(Non_linear):
     def __init__(self, feature):
         super().__init__(feature)
 
     def __str__(self):
-        return 'ln(abs(' + str(self.feature) + '))'
+        return 'ln(abs(' + str(self.feature) + ') + 1)'
 
     def evaluate(self, data):
-        return np.log(np.abs(data)+0.000001)
+        return np.log1p(np.abs(data))
 
-class Ln1p(Non_linear):
-    def __init__(self, feature):
-        super().__init__(feature)
-
-    def __str__(self):
-        return 'ln(abs(' + str(self.feature) + '1))'
-
-    def evaluate(self, data):
-        return np.log1p(np.abs(data)+0.000001)
-    
 class x72(Non_linear):
     def __init__(self, feature):
         super().__init__(feature)
@@ -907,106 +812,30 @@ class x13(Non_linear):
     def evaluate(self, data):
         return np.power(np.abs(data), 1 / 3)
 
-
-def generate_feature(pop, val, target, comps, fprobs, mprobs, tprobs, family, test_x):
-    rand = np.random.choice(4, size=1, p=fprobs)
-    values = val.copy()
-    # print("!:", values.shape)
-
-    if rand == 0:
-        idx = np.random.choice(pop.shape[0], size=2, p=mprobs, replace=True)
-        mult = Multiplication(pop[idx], values[:, idx], np.sum(comps[idx]))
-        feat, val = mult.feature, mult.values
-        if test_x is not None:
-            test_val = mult.evaluate(test_x[:, idx])
-        else:
-            test_val = None
-        obj = mult
-        # print("0:",val.shape)
-
-    elif rand == 1:
-        idx = np.random.choice(pop.shape[0], size=1, p=mprobs)
-        g = np.random.choice(transformations, p=tprobs)
-        mod = Modification(pop[idx], values[:, idx], g, comps[idx])
-        feat, val = mod.feature, mod.values.ravel()
-        if test_x is not None:
-            test_val = mod.evaluate(test_x[:, idx]).ravel()
-        else:
-            test_val = None
-        obj = mod
-        # print("1:",val.shape)
-
-    elif rand == 2:
-        g = np.random.choice(transformations, p=tprobs)
-        s = np.random.choice([2, 3, 4], size=1)
-        idx = np.random.choice(pop.shape[0], size=s, p=mprobs, replace=False)
-        proj = Projection(pop[idx], values[:, idx], target, g, family, 2*s + np.sum(comps[idx]))
-        feat, val = proj.feature, proj.values
-        if test_x is not None:
-            test_val = proj.evaluate(test_x[:, idx])
-        else:
-            test_val = None
-        obj = proj
-        # print("2:",val.shape)
-
-    elif rand == 3:
-        idx = np.random.choice(x_train.shape[1])
-        new = Linear(f'x{idx}', x_train[:,idx])
-        feat, val = str(new), new.values
-        if test_x is not None:
-            test_val = test_x[:, idx]
-        else:
-            test_val = None
-        obj = new
-        # print("3:",val.shape)
-
-    comp = float(obj.complexity)
-    return feat, val, test_val, obj, comp
-
-def check_collinearity(val, values):
-    v = values.copy()
-    v_test = val.copy()
-    idx = np.random.choice(v.shape[0], size = v.shape[0]//3, replace = False)
-    for i in range(v.shape[1]):
-        corr = np.corrcoef(v[idx,i], v_test[idx])[0][1]
-        #corr = np.corrcoef(v[i,:], v_test[:])[0][1]
-        if np.abs(corr) > 0.9:
-            #print("NOPE", corr)
-            return True
-    #print("YES")
-    return False
-
 # nonlinear features. Should be decided by user.
-transformations = [Sigmoid, Sine, Cosine, Ln, Exp, x72, x52, x13]
-tprobs = np.array([1/8, 1/8, 1/8, 1/8, 1/8, 1/8, 1/8, 1/8])
+transformations = [Sigmoid, Sine, Cosine, Ln, Exp]
+tprobs = np.array([1/5, 1/5, 1/5, 1/5, 1/5])
 
 # feature types
 # mult, mod, proj, new:
 fprobs = np.array([1/4, 1/4, 1/4, 1/4])
 
-if dataset_nr == '1':
-    transformations = [Sigmoid, Sine, Cosine, Ln, Exp]
-    tprobs = [1/5,1/5,1/5,1/5,1/5]
-if dataset_nr == '3':
-    transformations = [Sigmoid, Sine, Cosine, Ln, Exp, x72, x52, x13]
-    tprobs = np.array([1/8, 1/8, 1/8, 1/8, 1/8, 1/8 , 1/8, 1/8])
-    fprobs = [1/4, 1/4, 1/4, 1/4]
-    def gamma_prior(comps, n, p):
-        return torch.from_numpy(np.exp(-np.log(n)*np.log1p(comps)-0.000001))
-if dataset_nr == '4':
-    transformations = [x13]
-    tprobs = np.array([1])
-    fprobs = np.array([1/3,1/3,0,1/3])
-if dataset_nr == '5':
-    transformations = [Exp]
-    tprobs = np.array([1])
-    fprobs = np.array([1/3,1/3,0,1/3])
-if dataset_nr=='test':
-    transformations = [Sigmoid, Sine, Cosine, Ln, Exp, x72, x52, x13]
-    tprobs = np.array([1/8, 1/8, 1/8, 1/8, 1/8, 1/8, 1/8, 1/8])
-    fprobs = np.array([1/3, 1/3, 0, 1/3])
-
+# deciding population size and number og generations:
+N_GENERATIONS = 15
+EXTRA_FEATURES = 20
 POPULATION_SIZE = x_train.shape[1] + EXTRA_FEATURES
+COMPLEXITY_MAX = 10
+
+# strategy for optimizing projections:
+opt_strategy = None
+
+# initializing first generation:
+if POPULATION_SIZE > x_test.shape[1]:
+    test_values = np.zeros((x_test.shape[0], POPULATION_SIZE))
+    for i in range(x_test.shape[1]):
+        test_values[:, i] = x_test[:, i]
+else:
+    test_values = x_test
 
 F0 = {}
 for j in range(x_train.shape[1]):
@@ -1015,117 +844,75 @@ for j in range(x_train.shape[1]):
     F0[j]['mprob'] = 0
     F0[j]['complexity'] = 0
     F0[j]['values'] = x_train[:, j]
-    F0[j]['type'] = Linear(f'x{j}', x_train[:,j])
+    F0[j]['type'] = Linear(f'x{j}')
+
+
+for j in range(x_train.shape[1], POPULATION_SIZE):
+    F0[j] = {}
+    mprob = 1 / x_train.shape[1]
+    population = np.array([F0[k]['feature'] for k in range(x_train.shape[1])])
+    train_values = np.array([F0[k]['values'] for k in range(x_train.shape[1])])
+    complexities = np.array([F0[k]['complexity'] for k in range(x_train.shape[1])])
+    while (True):
+        feat, train_vals, test_vals, obj = generate_feature(population, train_values.T, fprobs,
+                                                            [mprob for _ in range(x_train.shape[1])], tprobs, family ,x_test)
+        comp = get_complexity(feat)
+        collinear = check_collinearity(train_vals, train_values)
+        if comp < COMPLEXITY_MAX and np.all(np.isfinite(train_vals)) and not collinear:
+            F0[j]['mprob'] = mprob
+            F0[j]['complexity'] = comp
+            F0[j]['feature'] = feat
+            F0[j]['values'] = train_vals
+            F0[j]['type'] = obj
+            test_values[:, j] = test_vals
+            break
+        continue
 
 # TRAINING:
+
+objects_list = [[F0[k]['type'] for k in range(POPULATION_SIZE)]]
+nets = []
+
 if family == 'binomial':
     test_acc = []
 test_loss = []
-
-print("\nTraining/testing generation 0")
-#Generation 0:
-train_values = x_train
-complexities = np.array([F0[k]['complexity'] for k in range(x_train.shape[1])])
-mprobs, net = var_inference(train_values, complexities, 0, family)
-for id, _ in F0.items():
-        F0[id]['mprob'] = mprobs[id]
-
-objects_list = [[F0[k]['type'] for k in range(x_train.shape[1])]]
-mprobs_list = [mprobs]
-
-predicted_vals, lower_vals, upper_vals, nets = [], [], [], [net]
-
-test_values = x_test
-test_data = torch.tensor(np.column_stack((test_values, y_test)), dtype=torch.float32).to(DEVICE)
-
-if family == 'binomial':
-    loss, nll, accuracy, means, uppers, lowers = test(net, test_data, p=x_train.shape[1] + 1)
-    test_acc.append(accuracy)
-    test_loss.append(loss)
-else:
-    loss, nll, means, uppers, lowers = test(net, test_data, p=x_train.shape[1] + 1)
-    test_loss.append(loss)
-
-predicted_vals.append(means)
-lower_vals.append(lowers)
-upper_vals.append(uppers)
-
-if POPULATION_SIZE > x_test.shape[1]:
-    test_values = np.zeros((x_test.shape[0], POPULATION_SIZE))
-    for i in range(x_test.shape[1]):
-        test_values[:, i] = x_test[:, i]
-
-
-if N_GENERATIONS > 0:
-    print("\nFilling population 1 with", EXTRA_FEATURES, "extra features:")
-    col = train_values
-    count=1
-    for j in range(x_train.shape[1], POPULATION_SIZE):
-        F0[j] = {}
-        mprobs = np.array([F0[k]['mprob'] for k in range(x_train.shape[1])])
-        population = np.array([F0[k]['feature'] for k in range(x_train.shape[1])])
-        train_values = np.array([F0[k]['values'] for k in range(x_train.shape[1])]).T
-        complexities = np.array([F0[k]['complexity'] for k in range(x_train.shape[1])])
-        while (True):
-            feat, train_vals, test_vals, obj, comp = generate_feature(population, train_values, y_train, complexities, fprobs,
-                                                                mprobs / np.sum(mprobs), tprobs, family, x_test)
-            
-            collinear = check_collinearity(train_vals, col)
-            if comp < COMPLEXITY_MAX and np.all(np.isfinite(train_vals)) and not collinear:
-                F0[j]['mprob'] = 0
-                F0[j]['complexity'] = comp
-                F0[j]['feature'] = feat
-                F0[j]['values'] = train_vals
-                F0[j]['type'] = obj
-                col = np.column_stack((col, train_vals))
-                test_values[:, j] = test_vals
-                printProgressBar(count, EXTRA_FEATURES, suffix = 'Complete')
-                count += 1
-                break
-            continue
-
-print("\nStarting training for", N_GENERATIONS, "generations:" )
-#Generation 1, .... , N_GENERATIONS:
 for i in range(1, N_GENERATIONS + 1):
     # VI step:
-    print(f"Training/testing for generation {i}:")
-    train_values = np.array([F0[k]['values'] for k in range(POPULATION_SIZE)]).T
-    if norm:
-        train_values = normalize(train_values)
+    train_values = np.array([F0[k]['values'] for k in range(POPULATION_SIZE)])
     complexities = np.array([F0[k]['complexity'] for k in range(POPULATION_SIZE)])
-    mprobs, net = var_inference(train_values, complexities, i, family)
+    mprobs, net = var_inference(train_values, complexities, i, family, verbose=False)
     population = np.array([F0[k]['feature'] for k in range(POPULATION_SIZE)])
-    mprobs_list.append(mprobs)
-    if i < N_GENERATIONS:
-        for id, _ in F0.items():
-            F0[id]['mprob'] = mprobs[id]
-            if F0[id]['mprob'] < 0.3: #Replace low probalility things
-                if F0[id]['mprob'] < np.random.uniform(): #But keep with some probability
-                    continue
-                while (True):
-                    feat, train_vals, test_vals, obj, comp = generate_feature(population, train_values, y_train, complexities, fprobs,
-                                                                        mprobs / np.sum(mprobs), tprobs, family, test_values)
-                    
-                    collinear = check_collinearity(train_vals, train_values)
 
-                    if comp < COMPLEXITY_MAX and np.all(np.isfinite(train_vals)) and not collinear:
-                        F0[id]['complexity'] = comp
-                        F0[id]['feature'] = feat
-                        F0[id]['values'] = normalize(train_vals)
-                        F0[id]['type'] = obj
-                        train_values[:, id] = train_vals
-                        test_values[:, id] = test_vals
-                        break
-                    continue
+    for id, _ in F0.items():
+        F0[id]['mprob'] = mprobs[id]
+        if F0[id]['mprob'] < 0.5:
+            while (True):
+                feat, train_vals, test_vals, obj = generate_feature(population, train_values.T, fprobs,
+                                                                    mprobs / np.sum(mprobs), tprobs, family,
+                                                                    test_values)
+                comp = get_complexity(feat)
+                collinear = check_collinearity(train_vals, train_values)
+
+                if comp < COMPLEXITY_MAX and np.all(np.isfinite(train_vals)) and not collinear:
+                    F0[id]['complexity'] = comp
+                    F0[id]['feature'] = feat
+                    F0[id]['values'] = train_vals
+                    F0[id]['type'] = obj
+                    # if opt_strategy == 3 and isinstance(obj, Projection):
+                    #    obj.optimize(feat, train_vals, strategy=3)
+                    test_values[:, id] = test_vals
+                    break
+                continue
     
     objects_list.append([F0[k]['type'] for k in range(POPULATION_SIZE)])
     nets.append(net)
 
     # TESTING FOR CURRENT POPULATION:
-    if norm:
-        test_values = normalize(test_values)
-    test_data = torch.tensor(np.column_stack((test_values, y_test)), dtype=torch.float32).to(DEVICE)
+    test_mean = test_values.mean(axis=0)
+    test_std = test_values.std(axis=0)
+    test_values = np.divide((test_values - test_mean), test_std)
 
+    test_data = torch.tensor(np.column_stack((test_values, y_test)), dtype=torch.float32).to(DEVICE)
     if family == 'binomial':
         loss, nll, accuracy, means, uppers, lowers = test(net, test_data, p=POPULATION_SIZE + 1)
         test_acc.append(accuracy)
@@ -1134,18 +921,12 @@ for i in range(1, N_GENERATIONS + 1):
         loss, nll, means, uppers, lowers = test(net, test_data, p=POPULATION_SIZE + 1)
         test_loss.append(loss)
 
-    predicted_vals.append(means)
-    lower_vals.append(lowers)
-    upper_vals.append(uppers)
-
 # printing final population and test results:
-
 for key, v in F0.items():
     f, m, c = v['feature'], v['mprob'], v['complexity']
     m = np.round(float(m), 3)
     t = type(v['type']).__name__
     print("ID: {:<3}, Feature: {:<60}, mprob:{:<15}, complexity: {:<5}, type: {:<10}".format(key, f, m, c, t))
-
 if family == 'binomial':
     print('\n\nTEST RESULTS:\n----------------------')
     print('FINAL GENERATION ACCURACY:', accuracy)
@@ -1155,76 +936,4 @@ elif family == 'gaussian':
     print('\n\nTEST RESULTS:\n----------------------')
     print('FINAL GENERATION LOSS:', np.sqrt(loss/x_test.shape[0]))
     print('MEAN TEST LOSS: ', np.sqrt(np.mean(test_loss)/x_test.shape[0]))
-    print('BEST LOSS (RMSE):', np.sqrt(np.min(test_loss)/x_test.shape[0]), f'(generation {test_loss.index(min(test_loss))})')
-
-    #Best features
-if dataset_nr == '4':
-    for i, o in enumerate(objects_list[test_loss.index(min(test_loss))]):
-            mprob = mprobs_list[test_loss.index(min(test_loss))][i]
-            if mprob > 0.5:
-                print(f'{o.feature}, mprob: {mprobs_list[test_loss.index(min(test_loss))][i]}')
-
-sns.set()
-fig1, ax1 = plt.subplots()
-ax1.plot(predicted_vals[test_loss.index(min(test_loss))], color = "red", label = 'predicted', linestyle = " ", marker = '.')
-ax1.axhline(upper_vals[test_loss.index(min(test_loss))], color = "blue", label = '0.95 quantile' ,linestyle='dashed')
-ax1.axhline(lower_vals[test_loss.index(min(test_loss))], color= "blue", label = '0.05 quantile' ,linestyle='dashed')
-ax1.plot(y_test, label = 'target', color = "black", linestyle = " ", marker = '.')
-ax1.legend()
-fig1.savefig('test_fig1.png')
-print("Prediction plot saved as 'test_fig1.png'")
-plt.close(fig1)
-
-if family=='gaussian':
-    if USE_FLOWS:
-        fig2, ax2 = plt.subplots()
-        sns.kdeplot(ax = ax2, x = predicted_vals[test_loss.index(min(test_loss))], label = 'predicted')
-        #sns.kdeplot(up[test_loss.index(min(test_loss))], label = '0.95 quantile' ,linestyle='dashed', alpha =0.5)
-        #sns.kdeplot(low[test_loss.index(min(test_loss))], label = '0.05 quantile' ,linestyle='dashed', alpha =0.5)
-        sns.kdeplot(ax = ax2, x = y_test, label = 'target')
-        ax2.legend()
-        fig2.savefig('test_fig2.png')
-        print("Density plot saved as 'test_fig2.png'")
-        plt.close(fig2)
-    else:
-        fig3, ax3 = plt.subplots()
-        sns.kdeplot(ax = ax3, x = predicted_vals[test_loss.index(min(test_loss))], label = 'predicted', marker = 'o')
-        #sns.kdeplot(up[test_loss.index(min(test_loss))], label = '0.95 quantile' ,linestyle='dashed', alpha =0.5)
-        #sns.kdeplot(low[test_loss.index(min(test_loss))], label = '0.05 quantile' ,linestyle='dashed', alpha =0.5)
-        sns.kdeplot(ax = ax3, x = y_test, label = 'target', marker = 'o')
-        ax3.legend()
-        fig3.savefig('test_fig3.png')
-        print("MF density plot saved as 'test_fig3.png'")
-        plt.close(fig3) 
-
-#Best features
-# final_features = []
-# final_vals = []
-# final_betas = []
-# beta = nets[test_loss.index(min(test_loss))].l1.weight_mu.detach().cpu().numpy()
-# print(beta.shape)
-# for i, o in enumerate(objects_list[test_loss.index(min(test_loss))]):
-#     mprob = mprobs_list[test_loss.index(min(test_loss))][i]
-#     if mprob > 0.5:
-#         final_features.append(o.feature)
-#         final_vals.append(o.values)
-#         final_betas.append(beta[:, i])
-
-# print(len(final_vals), len(final_betas))
-# print(y_train.shape)
-
-# cols = np.array([final_betas[i]*final_vals[i].reshape(-1,1) for i in range(len(final_vals))])
-
-# print(cols.shape)
-
-        #print(f'{o.feature}, mprob: {mprobs_list[test_loss.index(min(test_loss)) + 1][i]}')
-
-if VERBOSE:
-    print("Loss evolution:", test_loss)
-
-et = time.time()
-
-res = et-st
-final_res = res/60
-
-print("Total execution time:", final_res, "minutes")
+    print('BEST LOSS:', np.sqrt(np.min(test_loss)/x_test.shape[0]), f'(generation {test_loss.index(min(test_loss)) + 1})')
