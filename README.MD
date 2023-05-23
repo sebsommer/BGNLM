@@ -1,7 +1,7 @@
 ## BGNLM in PyTorch
 Implementation of BGNLM in PyTorch.
 
-Scripts and results are made to fit the datasets from my Master's thesis.
+Scripts and results are made to fit the datasets from my Master's thesis. Code to run and plot results, as well as plots used in thesis, can be found in results-folder.
 
 ## Usage
 To run the scripts, make sure all the required modules are loaded.
