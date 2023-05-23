@@ -1,0 +1,1952 @@
+
+
+R version 4.2.0 (2022-04-22) -- "Vigorous Calisthenics"
+Copyright (C) 2022 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #load some required libraries
+> library(RCurl)
+> library(glmnet)
+Loading required package: Matrix
+
+Execution halted
+
+R version 4.2.0 (2022-04-22) -- "Vigorous Calisthenics"
+Copyright (C) 2022 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #load some required libraries
+> library(RCurl)
+> library(glmnet)
+Loading required package: Matrix
+Loaded glmnet 4.1-4
+> library(xgboost)
+> library(h2o)
+
+----------------------------------------------------------------------
+
+Your next step is to start H2O:
+    > h2o.init()
+
+For H2O package documentation, ask for help:
+    > ??h2o
+
+After starting H2O, you can use the Web UI at http://localhost:54321
+For more information visit https://docs.h2o.ai
+
+----------------------------------------------------------------------
+
+
+Attaching package: ‘h2o’
+
+The following objects are masked from ‘package:stats’:
+
+    cor, sd, var
+
+The following objects are masked from ‘package:base’:
+
+    &&, %*%, %in%, ||, apply, as.factor, as.numeric, colnames,
+    colnames<-, ifelse, is.character, is.factor, is.numeric, log,
+    log10, log1p, log2, round, signif, trunc
+
+> library(caret)
+Loading required package: ggplot2
+Loading required package: lattice
+> #library(HDeconometrics)
+> #library(varbvs)
+> 
+> custfit.lasso = function(vect)
++ {
++   lasso=ic.glmnet(x = vect$x,y=vect$y,family = "gaussian",alpha = 1)
++   
++   return(list(lasso = lasso,vars =  as.integer(lasso$glmnet$beta[,lasso$glmnet$dim[2]]!=0)))
++ }
+> #define a custom function 1 to predict
+> custpredict.lasso = function(infer, x.new)
++ {
++   return(predict(infer$lasso$glmnet,newx = x.new,type = "response")[,which(infer$lasso$glmnet$lambda == infer$lasso$lambda)])#
++ }
+> #define a custom function 2 to fit
+> custfit.ridge = function(vect)
++ {
++   ridge = ic.glmnet(x = vect$x,y=vect$y,family = "gaussian",alpha = 0)
++   return(list(ridge = ridge, vars = as.integer(ridge$glmnet$beta[,ridge$glmnet$dim[2]]!=0)))
++ }
+> #define a custom function 2 to predict
+> custpredict.ridge = function(infer, x.new)
++ {
++   return(predict(infer$ridge$glmnet,newx = x.new,type = "response")[,which(infer$ridge$glmnet$lambda == infer$ridge$lambda)])
++ }
+> 
+> 
+> #vect = NULL
+> #vect$x = as.matrix(data.example[,-1])
+> #vect$y = data.example$M
+> 
+> library(forecast)
+Registered S3 method overwritten by 'quantmod':
+  method            from
+  as.zoo.data.frame zoo 
+> library(glmnet)
+> #library(HDeconometrics)
+> #library(BAS)
+> library(xgboost)
+> #library(varbvs)
+> 
+> 
+> custfit.lasso = function(vect)
++ {
++   lasso=ic.glmnet(x = vect$x,y=vect$y,family = "gaussian",alpha = 1)
++   
++   return(list(lasso = lasso,vars =  as.integer(lasso$glmnet$beta[,lasso$glmnet$dim[2]]!=0)))
++ }
+> #define a custom function 1 to predict
+> custpredict.lasso = function(infer, x.new)
++ {
++   return(predict(infer$lasso$glmnet,newx = x.new,type = "response")[,which(infer$lasso$glmnet$lambda == infer$lasso$lambda)])#
++ }
+> #define a custom function 2 to fit
+> custfit.ridge = function(vect)
++ {
++   ridge = ic.glmnet(x = vect$x,y=vect$y,family = "gaussian",alpha = 0)
++   return(list(ridge = ridge, vars = as.integer(ridge$glmnet$beta[,ridge$glmnet$dim[2]]!=0)))
++ }
+> #define a custom function 2 to predict
+> custpredict.ridge = function(infer, x.new)
++ {
++   return(predict(infer$ridge$glmnet,newx = x.new,type = "response")[,which(infer$ridge$glmnet$lambda == infer$ridge$lambda)])
++ }
+> 
+> 
+> custfit.vb = function(vect)
++ {
++   vb = varbvs(X = vect$x,y=vect$y,Z=vect$x,family = "gaussian",verbose = FALSE, maxiter = 1000)
++   vars = as.integer(vb$pip>=0.5)
++   return(list(vb = vb, vars = vars))
++ }
+> #define a custom function 3 to predict
+> custpredict.vb = function(infer, x.new)
++ {
++   return(predict(infer$vb,X = x.new,Z=x.new))
++ } 
+> 
+> #define your working directory, where the data files are stored
+> workdir=""
+> 
+> 
+> data.example = read.csv("slice_localization.csv",sep=",", header = T)
+> 
+> 
+> #data.example$MS=as.integer(data.example$V1=="M")
+> #data.example$FS=as.integer(data.example$V1=="F")
+> #data.example$V1=data.example$V9
+> #data.example$V9 = NULL
+> 
+> #names(data.example) = c("reference","Length", "Diameter","Height","WholeWeight","ShuckedWeight","VisceraWeight","ShellWeight","Male","Femele")
+> 
+> set.seed(040590)
+> teid =  read.csv("teids_ct.csv", header = F)[,1]
+> 
+> 
+> test = data.example[teid,]
+> data.example = data.example[-teid,]
+> train = data.example
+> 
+> 
+> vect = NULL
+> vect$x = as.matrix(data.example[,-ncol(data.example)])
+> vect$y = data.example$reference
+> 
+> sum(test$reference)
+[1] 502734.7
+> 
+> 
+> gc()
+           used  (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells  2572749 137.4    4701102 251.1  4120861 220.1
+Vcells 41821283 319.1   73123128 557.9 59538657 454.3
+> 
+> #prepare the data structures for the final results
+> results=array(0,dim = c(11,100,5))
+> 
+> # h2o initialize
+> h2o.init(nthreads=-1, max_mem_size = "6G")
+
+H2O is not running yet, starting it now...
+
+Note:  In case of errors look at the following log files:
+    /tmp/RtmpM0E43X/filee84bf3b34dbc1/h2o_pssommer_started_from_r.out
+    /tmp/RtmpM0E43X/filee84bf4638b967/h2o_pssommer_started_from_r.err
+
+openjdk version "11.0.2" 2019-01-15
+OpenJDK Runtime Environment 18.9 (build 11.0.2+9)
+OpenJDK 64-Bit Server VM 18.9 (build 11.0.2+9, mixed mode)
+
+Starting H2O JVM and connecting: ............. Connection successful!
+
+R is connected to the H2O cluster: 
+    H2O cluster uptime:         9 seconds 841 milliseconds 
+    H2O cluster timezone:       Europe/Oslo 
+    H2O data parsing timezone:  UTC 
+    H2O cluster version:        3.36.0.4 
+    H2O cluster version age:    1 year and 19 days !!! 
+    H2O cluster name:           H2O_started_from_R_pssommer_lfj659 
+    H2O cluster total nodes:    1 
+    H2O cluster total memory:   6.00 GB 
+    H2O cluster total cores:    56 
+    H2O cluster allowed cores:  56 
+    H2O cluster healthy:        TRUE 
+    H2O Connection ip:          localhost 
+    H2O Connection port:        54321 
+    H2O Connection proxy:       NA 
+    H2O Internal Security:      FALSE 
+    R Version:                  R version 4.2.0 (2022-04-22) 
+
+Warning message:
+In h2o.clusterInfo() : 
+Your H2O cluster version is too old (1 year and 19 days)!
+Please download and install the latest version from http://h2o.ai/download/
+> h2o.removeAll()
+> # h2o.random forest
+> df = as.h2o(data.example)
+  |                                                                              |                                                                      |   0%  |                                                                              |======================================================================| 100%
+> 
+> train1 = h2o.assign(df , "train1.hex")
+> valid1 = h2o.assign(df , "valid1.hex")
+> test1 = h2o.assign(as.h2o(test[,-ncol(data.example)]), "test1.hex")
+  |                                                                              |                                                                      |   0%  |                                                                              |======================================================================| 100%
+> features = names(train1)[-ncol(data.example)]
+> for(ii in 1:10)
++ {
++   print(paste("iteration ",ii))
++   #here we are no longer running BGNLM, since BGNLM algorithms are run via other scripts
++   #for computational efficiency and speed
++   # capture.output({withRestarts(tryCatch(capture.output({
++     #run xGboost logloss gblinear
++     t=system.time({
++       param = list(objective = "reg:squarederror",
++                    eval_metric = "rmse",
++                    booster = "gblinear",
++                    eta = 0.05,
++                    subsample = 0.86,
++                    colsample_bytree = 0.92,
++                    colsample_bylevel = 0.9,
++                    min_child_weight = 0,
++                    gamma = 0.005,
++                    max_depth = 15)
++       
++       
++       dval=xgb.DMatrix(data = data.matrix(train[,-ncol(data.example)]), label = data.matrix(train[,ncol(data.example)]),missing=NA)
++       watchlist=list(dval=dval)
++       
++       
++       m2 = xgb.train(data = xgb.DMatrix(data = data.matrix(train[,-ncol(data.example)]), label = data.matrix(train[,ncol(data.example)]),missing=NA),
++                      param, nrounds = 5000,
++                      watchlist = watchlist,
++                      print_every_n = 10)
++       
++     })
++     # Predict
++     results[3,ii,4]=t[3]
++     t=system.time({
++       dtest  = xgb.DMatrix(data.matrix(test[,-ncol(data.example)]),missing=NA)
++     })
++     
++     
++     t=system.time({
++       out = predict(m2, dtest)
++     })
++     results[3,ii,5]=t[3]
++     
++   
++     
++     #compute and store the performance metrics
++     results[3,ii,1]= sqrt(mean((out - test$reference)^2))
++     results[3,ii,2]=mean(abs(out - test$reference))
++     results[3,ii,3] = cor(out,test$reference)
++     
++     # xgboost logLik gbtree
++     t=system.time({
++       param = list(objective = "reg:squarederror",
++                    eval_metric = "rmse",
++                    booster = "gbtree",
++                    eta = 0.05,
++                    subsample = 0.86,
++                    colsample_bytree = 0.92,
++                    colsample_bylevel = 0.9,
++                    min_child_weight = 0,
++                    gamma = 0.005,
++                    max_depth = 15)
++       
++       dval=xgb.DMatrix(data = data.matrix(train[,-ncol(data.example)]), label = data.matrix(train[,ncol(data.example)]),missing=NA)
++       watchlist=list(dval=dval)
++       
++       
++       m2 = xgb.train(data = xgb.DMatrix(data = data.matrix(train[,-ncol(data.example)]), label = data.matrix(train[,ncol(data.example)]),missing=NA),
++                     param, nrounds = 300,
++                     watchlist = watchlist,
++                     print_every_n = 10)
++       
++     })
++     
++     results[4,ii,4]=t[3]
++     # Predict
++     system.time({
++       dtest  = xgb.DMatrix(data.matrix(test[,-ncol(data.example)]),missing=NA)
++     })
++     
++     t=system.time({
++       out = predict(m2, dtest)
++     })
++     
++     #compute and store the performance metrics
++     #compute and store the performance metrics
++     results[4,ii,1]= sqrt(mean((out - test$reference)^2))
++     results[4,ii,2]=mean(abs(out - test$reference))
++     results[4,ii,3] = cor(out,test$reference)
++     
++     
++     
++     #GLMNET (elastic networks) # lasso a=1
++     t=system.time({
++       infer.lasso = custfit.lasso(vect)
++     })
++     results[5,ii,4]=t[3]
++     
++     #predict
++     t=system.time({
++       out = custpredict.lasso(infer.lasso,as.matrix(test[,-ncol(data.example)]))
++     })
++     results[5,ii,5]=t[3]
++     
++     #compute and store the performance metrics
++     results[5,ii,1]= sqrt(mean((out - test$reference)^2))
++     results[5,ii,2]=mean(abs(out - test$reference))
++     results[5,ii,3] = cor(out,test$reference)
++     
++     #ridge a=0
++     t=system.time({
++       infer.ridge = custfit.ridge(vect)
++     })
++     results[6,ii,4]=t[3]
++     
++     #predict
++     t=system.time({
++       out = custpredict.ridge(infer.ridge,as.matrix(test[,-ncol(data.example)]))
++     })
++     
++     #compute and store the performance metrics
++     results[6,ii,1]= sqrt(mean((out - test$reference)^2))
++     results[6,ii,2]=mean(abs(out - test$reference))
++     results[6,ii,3] = cor(out,test$reference)
++     
++     gc()
++     
++     
++     
++     #h2o naive bayes
++     t=system.time({
++       infer.vb = custfit.vb(vect)
++     })
++     #predict
++     results[10,ii,4]=t[3]
++     t=system.time({
++       out=custpredict.vb(infer.vb,as.matrix(test[,-ncol(data.example)]))
++     })
++     results[10,ii,5]=t[3]
++ 
++     
++     #compute and store the performance metrics
++     results[10,ii,1]= sqrt(mean((out - test$reference)^2))
++     results[10,ii,2]=mean(abs(out - test$reference))
++     results[10,ii,3] = cor(out,test$reference)
++     
++     gc()
++   
++     
++ 
++     
++     
++     t=system.time({
++       rf1 = h2o.randomForest( stopping_metric = "RMSE",
++                               training_frame = train1,
++                               validation_frame = valid1,
++                               x=features,
++                               y="reference",
++                               model_id = "rf1",
++                               ntrees = 10000,
++                               stopping_rounds = 3,
++                               score_each_iteration = T,
++                               ignore_const_cols = T,
++                               seed = ii)
++     })
++     results[7,ii,4]=t[3]
++     
++     #predict
++     t=system.time({
++       out=h2o.predict(rf1,as.h2o(test1))[,ncol(data.example)]
++     })
++     
++     out=as.data.frame(as.matrix(out))$predict
++     #compute and store the performance metrics
++     results[7,ii,1]= sqrt(mean((out - test$reference)^2))
++     results[7,ii,2] = mean(abs(out - test$reference))
++     results[7,ii,3] = cor(out,test$reference)
++     
++     
++ 
++     #h2o deeplearning
++     t=system.time({
++       neo.dl = h2o.deeplearning(x = features, y = "reference",hidden=c(200,200,200,200,200,200),
++                                 distribution = "gaussian",
++                                 training_frame = train1,
++                                 validation_frame = valid1,
++                                 seed = ii)
++     })
++     #predict
++     t=system.time({
++       out=h2o.predict(neo.dl,as.h2o(test1))[,ncol(data.example)]
++     })
++     results[8,ii,5]=t[3]
++     out=as.data.frame(as.matrix(out))$predict
++     results[8,ii,1]= sqrt(mean((out - test$reference)^2))
++     results[8,ii,2] = mean(abs(out - test$reference))
++     results[8,ii,3] = cor(out,test$reference)
++     
++     
++     #h2o glm
++     t=system.time({
++       neo.glm = h2o.glm(x = features, y = "reference",
++                         family = "gaussian",
++                         training_frame = train1,
++                         validation_frame = valid1,
++                         #lambda = 0,
++                         #alpha = 0,
++                         lambda_search = F,
++                         seed = ii)
++     })
++     #predict
++     results[9,ii,4]=t[3]
++     
++     t=system.time({
++       out=h2o.predict(neo.glm,as.h2o(test1))[,ncol(data.example)]
++     })
++     results[9,ii,5]=t[3]
++     out=as.data.frame(as.matrix(out))$predict
++     results[9,ii,1]= sqrt(mean((out - test$reference)^2))
++     results[9,ii,2] = mean(abs(out - test$reference))
++     results[9,ii,3] = cor(out,test$reference)
++     
++     print( results[,ii,1])
++     
++     gc()
++   #})), abort = function(){onerr=TRUE;out=NULL})})
++ }
+[1] "iteration  1"
+[17:10:37] WARNING: amalgamation/../src/learner.cc:627: 
+Parameters: { "colsample_bylevel", "colsample_bytree", "gamma", "max_depth", "min_child_weight", "subsample" } might not be used.
+
+  This could be a false alarm, with some parameters getting used by language bindings but
+  then being mistakenly passed down to XGBoost core, or some parameter actually being used
+  but getting flagged wrongly here. Please open an issue if you find any such cases.
+
+
+[1]	dval-rmse:18.010016 
+[11]	dval-rmse:9.897781 
+[21]	dval-rmse:9.356217 
+[31]	dval-rmse:9.102027 
+[41]	dval-rmse:8.945340 
+[51]	dval-rmse:8.836962 
+[61]	dval-rmse:8.757481 
+[71]	dval-rmse:8.696509 
+[81]	dval-rmse:8.648424 
+[91]	dval-rmse:8.609574 
+[101]	dval-rmse:8.577624 
+[111]	dval-rmse:8.550929 
+[121]	dval-rmse:8.528321 
+[131]	dval-rmse:8.509046 
+[141]	dval-rmse:8.492414 
+[151]	dval-rmse:8.477904 
+[161]	dval-rmse:8.465170 
+[171]	dval-rmse:8.453892 
+[181]	dval-rmse:8.443806 
+[191]	dval-rmse:8.434790 
+[201]	dval-rmse:8.426628 
+[211]	dval-rmse:8.419179 
+[221]	dval-rmse:8.412365 
+[231]	dval-rmse:8.406122 
+[241]	dval-rmse:8.400342 
+[251]	dval-rmse:8.394990 
+[261]	dval-rmse:8.389999 
+[271]	dval-rmse:8.385342 
+[281]	dval-rmse:8.380974 
+[291]	dval-rmse:8.376851 
+[301]	dval-rmse:8.372964 
+[311]	dval-rmse:8.369270 
+[321]	dval-rmse:8.365783 
+[331]	dval-rmse:8.362464 
+[341]	dval-rmse:8.359285 
+[351]	dval-rmse:8.356277 
+[361]	dval-rmse:8.353390 
+[371]	dval-rmse:8.350628 
+[381]	dval-rmse:8.347963 
+[391]	dval-rmse:8.345403 
+[401]	dval-rmse:8.342950 
+[411]	dval-rmse:8.340582 
+[421]	dval-rmse:8.338298 
+[431]	dval-rmse:8.336088 
+[441]	dval-rmse:8.333955 
+[451]	dval-rmse:8.331894 
+[461]	dval-rmse:8.329900 
+[471]	dval-rmse:8.327962 
+[481]	dval-rmse:8.326090 
+[491]	dval-rmse:8.324274 
+[501]	dval-rmse:8.322509 
+[511]	dval-rmse:8.320795 
+[521]	dval-rmse:8.319139 
+[531]	dval-rmse:8.317528 
+[541]	dval-rmse:8.315959 
+[551]	dval-rmse:8.314431 
+[561]	dval-rmse:8.312942 
+[571]	dval-rmse:8.311495 
+[581]	dval-rmse:8.310089 
+[591]	dval-rmse:8.308716 
+[601]	dval-rmse:8.307376 
+[611]	dval-rmse:8.306069 
+[621]	dval-rmse:8.304799 
+[631]	dval-rmse:8.303557 
+[641]	dval-rmse:8.302347 
+[651]	dval-rmse:8.301169 
+[661]	dval-rmse:8.300015 
+[671]	dval-rmse:8.298889 
+[681]	dval-rmse:8.297789 
+[691]	dval-rmse:8.296715 
+[701]	dval-rmse:8.295661 
+[711]	dval-rmse:8.294633 
+[721]	dval-rmse:8.293629 
+[731]	dval-rmse:8.292650 
+[741]	dval-rmse:8.291691 
+[751]	dval-rmse:8.290749 
+[761]	dval-rmse:8.289827 
+[771]	dval-rmse:8.288929 
+[781]	dval-rmse:8.288047 
+[791]	dval-rmse:8.287183 
+[801]	dval-rmse:8.286339 
+[811]	dval-rmse:8.285514 
+[821]	dval-rmse:8.284703 
+[831]	dval-rmse:8.283913 
+[841]	dval-rmse:8.283136 
+[851]	dval-rmse:8.282375 
+[861]	dval-rmse:8.281625 
+[871]	dval-rmse:8.280893 
+[881]	dval-rmse:8.280176 
+[891]	dval-rmse:8.279471 
+[901]	dval-rmse:8.278780 
+[911]	dval-rmse:8.278104 
+[921]	dval-rmse:8.277442 
+[931]	dval-rmse:8.276789 
+[941]	dval-rmse:8.276152 
+[951]	dval-rmse:8.275522 
+[961]	dval-rmse:8.274910 
+[971]	dval-rmse:8.274304 
+[981]	dval-rmse:8.273713 
+[991]	dval-rmse:8.273132 
+[1001]	dval-rmse:8.272559 
+[1011]	dval-rmse:8.272000 
+[1021]	dval-rmse:8.271448 
+[1031]	dval-rmse:8.270906 
+[1041]	dval-rmse:8.270375 
+[1051]	dval-rmse:8.269851 
+[1061]	dval-rmse:8.269340 
+[1071]	dval-rmse:8.268834 
+[1081]	dval-rmse:8.268340 
+[1091]	dval-rmse:8.267853 
+[1101]	dval-rmse:8.267373 
+[1111]	dval-rmse:8.266903 
+[1121]	dval-rmse:8.266439 
+[1131]	dval-rmse:8.265984 
+[1141]	dval-rmse:8.265538 
+[1151]	dval-rmse:8.265098 
+[1161]	dval-rmse:8.264665 
+[1171]	dval-rmse:8.264240 
+[1181]	dval-rmse:8.263821 
+[1191]	dval-rmse:8.263410 
+[1201]	dval-rmse:8.263005 
+[1211]	dval-rmse:8.262604 
+[1221]	dval-rmse:8.262212 
+[1231]	dval-rmse:8.261826 
+[1241]	dval-rmse:8.261445 
+[1251]	dval-rmse:8.261069 
+[1261]	dval-rmse:8.260699 
+[1271]	dval-rmse:8.260336 
+[1281]	dval-rmse:8.259979 
+2) -- "Vigorous Calisthenics"
+Copyright (C) 2022 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #load some required libraries
+> library(RCurl)
+> library(glmnet)
+Loading required package: Matrix
+Loaded glmnet 4.1-4
+> library(xgboost)
+> library(h2o)
+
+----------------------------------------------------------------------
+
+Your next step is to start H2O:
+    > h2o.init()
+
+For H2O package documentation, ask for help:
+    > ??h2o
+
+After starting H2O, you can use the Web UI at http://localhost:54321
+For more information visit https://docs.h2o.ai
+
+----------------------------------------------------------------------
+
+
+Attaching package: ‘h2o’
+
+The following objects are masked from ‘package:stats’:
+
+    cor, sd, var
+
+The following objects are masked from ‘package:base’:
+
+    &&, %*%, %in%, ||, apply, as.factor, as.numeric, colnames,
+    colnames<-, ifelse, is.character, is.factor, is.numeric, log,
+    log10, log1p, log2, round, signif, trunc
+
+> library(caret)
+Loading required package: ggplot2
+Loading required package: lattice
+> #library(HDeconometrics)
+> #library(varbvs)
+> 
+> custfit.lasso = function(vect)
++ {
++   lasso=ic.glmnet(x = vect$x,y=vect$y,family = "gaussian",alpha = 1)
++   
++   return(list(lasso = lasso,vars =  as.integer(lasso$glmnet$beta[,lasso$glmnet$dim[2]]!=0)))
++ }
+> #define a custom function 1 to predict
+> custpredict.lasso = function(infer, x.new)
++ {
++   return(predict(infer$lasso$glmnet,newx = x.new,type = "response")[,which(infer$lasso$glmnet$lambda == infer$lasso$lambda)])#
++ }
+> #define a custom function 2 to fit
+> custfit.ridge = function(vect)
++ {
++   ridge = ic.glmnet(x = vect$x,y=vect$y,family = "gaussian",alpha = 0)
++   return(list(ridge = ridge, vars = as.integer(ridge$glmnet$beta[,ridge$glmnet$dim[2]]!=0)))
++ }
+> #define a custom function 2 to predict
+> custpredict.ridge = function(infer, x.new)
++ {
++   return(predict(infer$ridge$glmnet,newx = x.new,type = "response")[,which(infer$ridge$glmnet$lambda == infer$ridge$lambda)])
++ }
+> 
+> 
+> #vect = NULL
+> #vect$x = as.matrix(data.example[,-1])
+> #vect$y = data.example$M
+> 
+> library(forecast)
+Registered S3 method overwritten by 'quantmod':
+  method            from
+  as.zoo.data.frame zoo 
+> library(glmnet)
+> #library(HDeconometrics)
+> #library(BAS)
+> library(xgboost)
+> #library(varbvs)
+> 
+> 
+> custfit.lasso = function(vect)
++ {
++   lasso=ic.glmnet(x = vect$x,y=vect$y,family = "gaussian",alpha = 1)
++   
++   return(list(lasso = lasso,vars =  as.integer(lasso$glmnet$beta[,lasso$glmnet$dim[2]]!=0)))
++ }
+> #define a custom function 1 to predict
+> custpredict.lasso = function(infer, x.new)
++ {
++   return(predict(infer$lasso$glmnet,newx = x.new,type = "response")[,which(infer$lasso$glmnet$lambda == infer$lasso$lambda)])#
++ }
+> #define a custom function 2 to fit
+> custfit.ridge = function(vect)
++ {
++   ridge = ic.glmnet(x = vect$x,y=vect$y,family = "gaussian",alpha = 0)
++   return(list(ridge = ridge, vars = as.integer(ridge$glmnet$beta[,ridge$glmnet$dim[2]]!=0)))
++ }
+> #define a custom function 2 to predict
+> custpredict.ridge = function(infer, x.new)
++ {
++   return(predict(infer$ridge$glmnet,newx = x.new,type = "response")[,which(infer$ridge$glmnet$lambda == infer$ridge$lambda)])
++ }
+> 
+> 
+> custfit.vb = function(vect)
++ {
++   vb = varbvs(X = vect$x,y=vect$y,Z=vect$x,family = "gaussian",verbose = FALSE, maxiter = 1000)
++   vars = as.integer(vb$pip>=0.5)
++   return(list(vb = vb, vars = vars))
++ }
+> #define a custom function 3 to predict
+> custpredict.vb = function(infer, x.new)
++ {
++   return(predict(infer$vb,X = x.new,Z=x.new))
++ } 
+> 
+> #define your working directory, where the data files are stored
+> workdir=""
+> 
+> 
+> data.example = read.csv("slice_localization.csv",sep=",", header = T)
+> 
+> 
+> #data.example$MS=as.integer(data.example$V1=="M")
+> #data.example$FS=as.integer(data.example$V1=="F")
+> #data.example$V1=data.example$V9
+> #data.example$V9 = NULL
+> 
+> #names(data.example) = c("reference","Length", "Diameter","Height","WholeWeight","ShuckedWeight","VisceraWeight","ShellWeight","Male","Femele")
+> 
+> set.seed(040590)
+> teid =  read.csv("teids_ct.csv", header = F)[,1]
+> 
+> 
+> test = data.example[teid,]
+> data.example = data.example[-teid,]
+> train = data.example
+> 
+> 
+> vect = NULL
+> vect$x = as.matrix(data.example[,-ncol(data.example)])
+> vect$y = data.example$reference
+> 
+> sum(test$reference)
+[1] 502734.7
+> 
+> 
+> gc()
+           used  (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells  2572749 137.4    4701111 251.1  4120861 220.1
+Vcells 41821283 319.1   73123128 557.9 59538657 454.3
+> 
+> #prepare the data structures for the final results
+> results=array(0,dim = c(11,100,5))
+> 
+> # h2o initialize
+> h2o.init(nthreads=-1, max_mem_size = "6G")
+
+H2O is not running yet, starting it now...
+
+Note:  In case of errors look at the following log files:
+    /tmp/RtmpNbYSsM/file1e24713c3f888a/h2o_pssommer_started_from_r.out
+    /tmp/RtmpNbYSsM/file1e247126aa95d/h2o_pssommer_started_from_r.err
+
+openjdk version "11.0.2" 2019-01-15
+OpenJDK Runtime Environment 18.9 (build 11.0.2+9)
+OpenJDK 64-Bit Server VM 18.9 (build 11.0.2+9, mixed mode)
+
+Starting H2O JVM and connecting: ........ Connection successful!
+
+R is connected to the H2O cluster: 
+    H2O cluster uptime:         3 seconds 392 milliseconds 
+    H2O cluster timezone:       Europe/Oslo 
+    H2O data parsing timezone:  UTC 
+    H2O cluster version:        3.36.0.4 
+    H2O cluster version age:    1 year and 20 days !!! 
+    H2O cluster name:           H2O_started_from_R_pssommer_lfj659 
+    H2O cluster total nodes:    1 
+    H2O cluster total memory:   6.00 GB 
+    H2O cluster total cores:    64 
+    H2O cluster allowed cores:  64 
+    H2O cluster healthy:        TRUE 
+    H2O Connection ip:          localhost 
+    H2O Connection port:        54321 
+    H2O Connection proxy:       NA 
+    H2O Internal Security:      FALSE 
+    R Version:                  R version 4.2.0 (2022-04-22) 
+
+Warning message:
+In h2o.clusterInfo() : 
+Your H2O cluster version is too old (1 year and 20 days)!
+Please download and install the latest version from http://h2o.ai/download/
+> h2o.removeAll()
+> # h2o.random forest
+> df = as.h2o(data.example)
+  |                                                                              |                                                                      |   0%  |                                                                              |======================================================================| 100%
+> 
+> train1 = h2o.assign(df , "train1.hex")
+> valid1 = h2o.assign(df , "valid1.hex")
+> test1 = h2o.assign(as.h2o(test[,-ncol(data.example)]), "test1.hex")
+  |                                                                              |                                                                      |   0%  |                                                                              |======================================================================| 100%
+> features = names(train1)[-ncol(data.example)]
+> for(ii in 1:10)
++ {
++   print(paste("iteration ",ii))
++   #here we are no longer running BGNLM, since BGNLM algorithms are run via other scripts
++   #for computational efficiency and speed
++   # capture.output({withRestarts(tryCatch(capture.output({
++     #run xGboost logloss gblinear
++     t=system.time({
++       param = list(objective = "reg:squarederror",
++                    eval_metric = "rmse",
++                    booster = "gblinear",
++                    eta = 0.05,
++                    subsample = 0.86,
++                    colsample_bytree = 0.92,
++                    colsample_bylevel = 0.9,
++                    min_child_weight = 0,
++                    gamma = 0.005,
++                    max_depth = 15)
++       
++       
++       dval=xgb.DMatrix(data = data.matrix(train[,-ncol(data.example)]), label = data.matrix(train[,ncol(data.example)]),missing=NA)
++       watchlist=list(dval=dval)
++       
++       
++       m2 = xgb.train(data = xgb.DMatrix(data = data.matrix(train[,-ncol(data.example)]), label = data.matrix(train[,ncol(data.example)]),missing=NA),
++                      param, nrounds = 5000,
++                      watchlist = watchlist,
++                      print_every_n = 10)
++       
++     })
++     # Predict
++     results[3,ii,4]=t[3]
++     t=system.time({
++       dtest  = xgb.DMatrix(data.matrix(test[,-ncol(data.example)]),missing=NA)
++     })
++     
++     
++     t=system.time({
++       out = predict(m2, dtest)
++     })
++     results[3,ii,5]=t[3]
++     
++   
++     
++     #compute and store the performance metrics
++     results[3,ii,1]= sqrt(mean((out - test$reference)^2))
++     results[3,ii,2]=mean(abs(out - test$reference))
++     results[3,ii,3] = cor(out,test$reference)
++     
++     # xgboost logLik gbtree
++     t=system.time({
++       param = list(objective = "reg:squarederror",
++                    eval_metric = "rmse",
++                    booster = "gbtree",
++                    eta = 0.05,
++                    subsample = 0.86,
++                    colsample_bytree = 0.92,
++                    colsample_bylevel = 0.9,
++                    min_child_weight = 0,
++                    gamma = 0.005,
++                    max_depth = 15)
++       
++       dval=xgb.DMatrix(data = data.matrix(train[,-ncol(data.example)]), label = data.matrix(train[,ncol(data.example)]),missing=NA)
++       watchlist=list(dval=dval)
++       
++       
++       m2 = xgb.train(data = xgb.DMatrix(data = data.matrix(train[,-ncol(data.example)]), label = data.matrix(train[,ncol(data.example)]),missing=NA),
++                     param, nrounds = 300,
++                     watchlist = watchlist,
++                     print_every_n = 10)
++       
++     })
++     
++     results[4,ii,4]=t[3]
++     # Predict
++     system.time({
++       dtest  = xgb.DMatrix(data.matrix(test[,-ncol(data.example)]),missing=NA)
++     })
++     
++     t=system.time({
++       out = predict(m2, dtest)
++     })
++     
++     #compute and store the performance metrics
++     #compute and store the performance metrics
++     results[4,ii,1]= sqrt(mean((out - test$reference)^2))
++     results[4,ii,2]=mean(abs(out - test$reference))
++     results[4,ii,3] = cor(out,test$reference)
++     
++     
++     
++     #GLMNET (elastic networks) # lasso a=1
++     t=system.time({
++       infer.lasso = custfit.lasso(vect)
++     })
++     results[5,ii,4]=t[3]
++     
++     #predict
++     t=system.time({
++       out = custpredict.lasso(infer.lasso,as.matrix(test[,-ncol(data.example)]))
++     })
++     results[5,ii,5]=t[3]
++     
++     #compute and store the performance metrics
++     results[5,ii,1]= sqrt(mean((out - test$reference)^2))
++     results[5,ii,2]=mean(abs(out - test$reference))
++     results[5,ii,3] = cor(out,test$reference)
++     
++     #ridge a=0
++     t=system.time({
++       infer.ridge = custfit.ridge(vect)
++     })
++     results[6,ii,4]=t[3]
++     
++     #predict
++     t=system.time({
++       out = custpredict.ridge(infer.ridge,as.matrix(test[,-ncol(data.example)]))
++     })
++     
++     #compute and store the performance metrics
++     results[6,ii,1]= sqrt(mean((out - test$reference)^2))
++     results[6,ii,2]=mean(abs(out - test$reference))
++     results[6,ii,3] = cor(out,test$reference)
++     
++     gc()
++     
++     
++     
++     #h2o naive bayes
++     t=system.time({
++       infer.vb = custfit.vb(vect)
++     })
++     #predict
++     results[10,ii,4]=t[3]
++     t=system.time({
++       out=custpredict.vb(infer.vb,as.matrix(test[,-ncol(data.example)]))
++     })
++     results[10,ii,5]=t[3]
++ 
++     
++     #compute and store the performance metrics
++     results[10,ii,1]= sqrt(mean((out - test$reference)^2))
++     results[10,ii,2]=mean(abs(out - test$reference))
++     results[10,ii,3] = cor(out,test$reference)
++     
++     gc()
++   
++     
++ 
++     
++     
++     t=system.time({
++       rf1 = h2o.randomForest( stopping_metric = "RMSE",
++                               training_frame = train1,
++                               validation_frame = valid1,
++                               x=features,
++                               y="reference",
++                               model_id = "rf1",
++                               ntrees = 10000,
++                               stopping_rounds = 3,
++                               score_each_iteration = T,
++                               ignore_const_cols = T,
++                               seed = ii)
++     })
++     results[7,ii,4]=t[3]
++     
++     #predict
++     t=system.time({
++       out=h2o.predict(rf1,as.h2o(test1))[,ncol(data.example)]
++     })
++     
++     out=as.data.frame(as.matrix(out))$predict
++     #compute and store the performance metrics
++     results[7,ii,1]= sqrt(mean((out - test$reference)^2))
++     results[7,ii,2] = mean(abs(out - test$reference))
++     results[7,ii,3] = cor(out,test$reference)
++     
++     
++ 
++     #h2o deeplearning
++     t=system.time({
++       neo.dl = h2o.deeplearning(x = features, y = "reference",hidden=c(200,200,200,200,200,200),
++                                 distribution = "gaussian",
++                                 training_frame = train1,
++                                 validation_frame = valid1,
++                                 seed = ii)
++     })
++     #predict
++     t=system.time({
++       out=h2o.predict(neo.dl,as.h2o(test1))[,ncol(data.example)]
++     })
++     results[8,ii,5]=t[3]
++     out=as.data.frame(as.matrix(out))$predict
++     results[8,ii,1]= sqrt(mean((out - test$reference)^2))
++     results[8,ii,2] = mean(abs(out - test$reference))
++     results[8,ii,3] = cor(out,test$reference)
++     
++     
++     #h2o glm
++     t=system.time({
++       neo.glm = h2o.glm(x = features, y = "reference",
++                         family = "gaussian",
++                         training_frame = train1,
++                         validation_frame = valid1,
++                         #lambda = 0,
++                         #alpha = 0,
++                         lambda_search = F,
++                         seed = ii)
++     })
++     #predict
++     results[9,ii,4]=t[3]
++     
++     t=system.time({
++       out=h2o.predict(neo.glm,as.h2o(test1))[,ncol(data.example)]
++     })
++     results[9,ii,5]=t[3]
++     out=as.data.frame(as.matrix(out))$predict
++     results[9,ii,1]= sqrt(mean((out - test$reference)^2))
++     results[9,ii,2] = mean(abs(out - test$reference))
++     results[9,ii,3] = cor(out,test$reference)
++     
++     print( results[,ii,1])
++     
++     gc()
++   #})), abort = function(){onerr=TRUE;out=NULL})})
++ }
+[1] "iteration  1"
+[18:49:36] WARNING: amalgamation/../src/learner.cc:627: 
+Parameters: { "colsample_bylevel", "colsample_bytree", "gamma", "max_depth", "min_child_weight", "subsample" } might not be used.
+
+  This could be a false alarm, with some parameters getting used by language bindings but
+  then being mistakenly passed down to XGBoost core, or some parameter actually being used
+  but getting flagged wrongly here. Please open an issue if you find any such cases.
+
+
+[1]	dval-rmse:16.851393 
+[11]	dval-rmse:9.865402 
+[21]	dval-rmse:9.317252 
+[31]	dval-rmse:9.062164 
+[41]	dval-rmse:8.905169 
+[51]	dval-rmse:8.797406 
+[61]	dval-rmse:8.719264 
+[71]	dval-rmse:8.660319 
+[81]	dval-rmse:8.614447 
+[91]	dval-rmse:8.577658 
+[101]	dval-rmse:8.547791 
+[111]	dval-rmse:8.523101 
+[121]	dval-rmse:8.502384 
+[131]	dval-rmse:8.484792 
+[141]	dval-rmse:8.469779 
+[151]	dval-rmse:8.456682 
+[161]	dval-rmse:8.445253 
+[171]	dval-rmse:8.435226 
+[181]	dval-rmse:8.426286 
+[191]	dval-rmse:8.418299 
+[201]	dval-rmse:8.411090 
+[211]	dval-rmse:8.404553 
+[221]	dval-rmse:8.398589 
+[231]	dval-rmse:8.393134 
+[241]	dval-rmse:8.388098 
+[251]	dval-rmse:8.383444 
+[261]	dval-rmse:8.379104 
+[271]	dval-rmse:8.375065 
+[281]	dval-rmse:8.371289 
+[291]	dval-rmse:8.367735 
+[301]	dval-rmse:8.364390 
+[311]	dval-rmse:8.361227 
+[321]	dval-rmse:8.358223 
+[331]	dval-rmse:8.355372 
+[341]	dval-rmse:8.352660 
+[351]	dval-rmse:8.350057 
+[361]	dval-rmse:8.347572 
+[371]	dval-rmse:8.345191 
+[381]	dval-rmse:8.342906 
+[391]	dval-rmse:8.340720 
+[401]	dval-rmse:8.338600 
+[411]	dval-rmse:8.336569 
+[421]	dval-rmse:8.334608 
+[431]	dval-rmse:8.332714 
+[441]	dval-rmse:8.330872 
+[451]	dval-rmse:8.329094 
+[461]	dval-rmse:8.327369 
+[471]	dval-rmse:8.325705 
+[481]	dval-rmse:8.324092 
+[491]	dval-rmse:8.322529 
+[1311]	dval-rmse:8.258938 
+511]	dval-rmse:8.319530 
+[521]	dval-rmse:8.318089 
+[531]	dval-rmse:8.316687 
+[541]	dval-rmse:8.315321 
+[551]	dval-rmse:8.313989 
+[561]	dval-rmse:8.312694 
+[571]	dval-rmse:8.311440 
+[581]	dval-rmse:8.310211 
+[591]	dval-rmse:8.309005 
+[601]	dval-rmse:8.307835 
+[611]	dval-rmse:8.306690 
+[621]	dval-rmse:8.305579 
+[631]	dval-rmse:8.304490 
+[641]	dval-rmse:8.303422 
+[651]	dval-rmse:8.302380 
+[661]	dval-rmse:8.301362 
+[671]	dval-rmse:8.300362 
+[681]	dval-rmse:8.299385 
+[691]	dval-rmse:8.298426 
+[701]	dval-rmse:8.297486 
+[711]	dval-rmse:8.296569 
+[721]	dval-rmse:8.295674 
+[731]	dval-rmse:8.294791 
+[741]	dval-rmse:8.293929 
+[751]	dval-rmse:8.293083 
+[761]	dval-rmse:8.292256 
+[771]	dval-rmse:8.291444 
+[781]	dval-rmse:8.290648 
+[791]	dval-rmse:8.289865 
+[801]	dval-rmse:8.289100 
+[811]	dval-rmse:8.288350 
+[821]	dval-rmse:8.287610 
+[831]	dval-rmse:8.286883 
+[841]	dval-rmse:8.286173 
+[851]	dval-rmse:8.285472 
+[861]	dval-rmse:8.284786 
+[871]	dval-rmse:8.284116 
+[881]	dval-rmse:8.283455 
+[891]	dval-rmse:8.282807 
+[901]	dval-rmse:8.282167 
+[911]	dval-rmse:8.281539 
+[921]	dval-rmse:8.280925 
+[931]	dval-rmse:8.280318 
+[941]	dval-rmse:8.279721 
+[951]	dval-rmse:8.279136 
+[961]	dval-rmse:8.278560 
+[971]	dval-rmse:8.277993 
+[981]	dval-rmse:8.277436 
+[991]	dval-rmse:8.276889 
+[1001]	dval-rmse:8.276350 
+[1011]	dval-rmse:8.275818 
+[1021]	dval-rmse:8.275295 
+[1031]	dval-rmse:8.274779 
+[1041]	dval-rmse:8.274273 
+[1051]	dval-rmse:8.273773 
+[1061]	dval-rmse:8.273285 
+[1071]	dval-rmse:8.272800 
+[1081]	dval-rmse:8.272326 
+[1091]	dval-rmse:8.271854 
+[1101]	dval-rmse:8.271391 
+[1111]	dval-rmse:8.270936 
+[1121]	dval-rmse:8.270486 
+[1131]	dval-rmse:8.270044 
+[1141]	dval-rmse:8.269608 
+[1151]	dval-rmse:8.269178 
+[1161]	dval-rmse:8.268756 
+[1171]	dval-rmse:8.268339 
+[1181]	dval-rmse:8.267929 
+[1191]	dval-rmse:8.267526 
+[1201]	dval-rmse:8.267127 
+[1211]	dval-rmse:8.266733 
+[1221]	dval-rmse:8.266344 
+[1231]	dval-rmse:8.265961 
+[1241]	dval-rmse:8.265586 
+[1251]	dval-rmse:8.265213 
+[1261]	dval-rmse:8.264846 
+[1271]	dval-rmse:8.264486 
+[1281]	dval-rmse:8.264129 
+[1291]	dval-rmse:8.263776 
+[1301]	dval-rmse:8.263428 
+[1311]	dval-rmse:8.263085 
+[1321]	dval-rmse:8.262746 
+[1331]	dval-rmse:8.262412 
+[1341]	dval-rmse:8.262082 
+[1351]	dval-rmse:8.261754 
+[1361]	dval-rmse:8.261433 
+[1371]	dval-rmse:8.261116 
+[1381]	dval-rmse:8.260804 
+[1391]	dval-rmse:8.260493 
+[1401]	dval-rmse:8.260187 
+[1411]	dval-rmse:8.259885 
+[1421]	dval-rmse:8.259585 
+[1431]	dval-rmse:8.259292 
+[1441]	dval-rmse:8.259003 
+[1451]	dval-rmse:8.258715 
+[1461]	dval-rmse:8.258433 
+[1471]	dval-rmse:8.258154 
+[1481]	dval-rmse:8.257876 
+[1491]	dval-rmse:8.257601 
+[1501]	dval-rmse:8.257330 
+[1511]	dval-rmse:8.257065 
+[1521]	dval-rmse:8.256801 
+[1531]	dval-rmse:8.256540 
+[1541]	dval-rmse:8.256282 
+[1551]	dval-rmse:8.256027 
+[1561]	dval-rmse:8.255773 
+[1571]	dval-rmse:8.255526 
+[1581]	dval-rmse:8.255278 
+[1591]	dval-rmse:8.255036 
+[1601]	dval-rmse:8.254795 
+[1611]	dval-rmse:8.254557 
+[1621]	dval-rmse:8.254323 
+[1631]	dval-rmse:8.254089 
+[1641]	dval-rmse:8.253860 
+[1651]	dval-rmse:8.253631 
+[1661]	dval-rmse:8.253406 
+[1671]	dval-rmse:8.253184 
+[1681]	dval-rmse:8.252964 
+[1691]	dval-rmse:8.252745 
+[1701]	dval-rmse:8.252530 
+[1711]	dval-rmse:8.252317 
+[1721]	dval-rmse:8.252108 
+[1731]	dval-rmse:8.251898 
+[1741]	dval-rmse:8.251693 
+[1751]	dval-rmse:8.251488 
+[1761]	dval-rmse:8.251285 
+[1771]	dval-rmse:8.251085 
+[1781]	dval-rmse:8.250889 
+[1791]	dval-rmse:8.250693 
+[1801]	dval-rmse:8.250499 
+[1811]	dval-rmse:8.250306 
+[1821]	dval-rmse:8.250119 
+[1831]	dval-rmse:8.249929 
+[1841]	dval-rmse:8.249744 
+[1851]	dval-rmse:8.249560 
+[1861]	dval-rmse:8.249378 
+[1871]	dval-rmse:8.249197 
+[1881]	dval-rmse:8.249021 
+[1891]	dval-rmse:8.248843 
+[1901]	dval-rmse:8.248669 
+[1911]	dval-rmse:8.248496 
+[1921]	dval-rmse:8.248326 
+[1931]	dval-rmse:8.248155 
+[1941]	dval-rmse:8.247990 
+[1951]	dval-rmse:8.247822 
+[1961]	dval-rmse:8.247658 
+[1971]	dval-rmse:8.247494 
+[1981]	dval-rmse:8.247333 
+[1991]	dval-rmse:8.247174 
+[2001]	dval-rmse:8.247015 
+[2011]	dval-rmse:8.246859 
+[2021]	dval-rmse:8.246702 
+[1371]	dval-rmse:8.256993 
+[2041]	dval-rmse:8.246396 
+[2051]	dval-rmse:8.246245 
+[2061]	dval-rmse:8.246095 
+[2071]	dval-rmse:8.245945 
+[2081]	dval-rmse:8.245800 
+[2091]	dval-rmse:8.245654 
+[2101]	dval-rmse:8.245512 
+[2111]	dval-rmse:8.245369 
+[2121]	dval-rmse:8.245226 
+[2131]	dval-rmse:8.245086 
+[2141]	dval-rmse:8.244947 
+[2151]	dval-rmse:8.244809 
+[2161]	dval-rmse:8.244674 
+[2171]	dval-rmse:8.244538 
+[2181]	dval-rmse:8.244403 
+[2191]	dval-rmse:8.244272 
+[2201]	dval-rmse:8.244141 
+[2211]	dval-rmse:8.244010 
+[2221]	dval-rmse:8.243881 
+[2231]	dval-rmse:8.243754 
+[2241]	dval-rmse:8.243626 
+[2251]	dval-rmse:8.243500 
+[2261]	dval-rmse:8.243377 
+[2271]	dval-rmse:8.243254 
+[2281]	dval-rmse:8.243130 
+[2291]	dval-rmse:8.243009 
+[2301]	dval-rmse:8.242891 
+[2311]	dval-rmse:8.242769 
+[2321]	dval-rmse:8.242652 
+[2331]	dval-rmse:8.242534 
+[2341]	dval-rmse:8.242419 
+[2351]	dval-rmse:8.242305 
+[2361]	dval-rmse:8.242190 
+[2371]	dval-rmse:8.242076 
+[2381]	dval-rmse:8.241963 
+[2391]	dval-rmse:8.241855 
+[2401]	dval-rmse:8.241744 
+[2411]	dval-rmse:8.241634 
+[2421]	dval-rmse:8.241527 
+[2431]	dval-rmse:8.241418 
+[2441]	dval-rmse:8.241312 
+[2451]	dval-rmse:8.241207 
+[2461]	dval-rmse:8.241101 
+[2471]	dval-rmse:8.240998 
+[2481]	dval-rmse:8.240894 
+[2491]	dval-rmse:8.240793 
+[2501]	dval-rmse:8.240691 
+[2511]	dval-rmse:8.240590 
+[2521]	dval-rmse:8.240491 
+[2531]	dval-rmse:8.240391 
+[2541]	dval-rmse:8.240293 
+[2551]	dval-rmse:8.240196 
+[2561]	dval-rmse:8.240100 
+[2571]	dval-rmse:8.240005 
+[2581]	dval-rmse:8.239910 
+[2591]	dval-rmse:8.239814 
+[2601]	dval-rmse:8.239721 
+[2611]	dval-rmse:8.239628 
+[2621]	dval-rmse:8.239537 
+[2631]	dval-rmse:8.239445 
+[2641]	dval-rmse:8.239354 
+[2651]	dval-rmse:8.239264 
+[2661]	dval-rmse:8.239175 
+[2671]	dval-rmse:8.239087 
+[2681]	dval-rmse:8.239000 
+[2691]	dval-rmse:8.238914 
+[2701]	dval-rmse:8.238826 
+[2711]	dval-rmse:8.238740 
+[2721]	dval-rmse:8.238656 
+[2731]	dval-rmse:8.238571 
+[2741]	dval-rmse:8.238487 
+[2751]	dval-rmse:8.238405 
+[2761]	dval-rmse:8.238322 
+[2771]	dval-rmse:8.238241 
+[2781]	dval-rmse:8.238161 
+[2791]	dval-rmse:8.238080 
+[2801]	dval-rmse:8.238000 
+[2811]	dval-rmse:8.237922 
+[2821]	dval-rmse:8.237842 
+[2831]	dval-rmse:8.237765 
+[2841]	dval-rmse:8.237688 
+[2851]	dval-rmse:8.237609 
+[2861]	dval-rmse:8.237534 
+[2871]	dval-rmse:8.237458 
+[2881]	dval-rmse:8.237383 
+[2891]	dval-rmse:8.237309 
+[2901]	dval-rmse:8.237235 
+[2911]	dval-rmse:8.237161 
+[2921]	dval-rmse:8.237088 
+[2931]	dval-rmse:8.237017 
+[2941]	dval-rmse:8.236945 
+[2951]	dval-rmse:8.236873 
+[2961]	dval-rmse:8.236802 
+[2971]	dval-rmse:8.236732 
+[2981]	dval-rmse:8.236662 
+[2991]	dval-rmse:8.236594 
+[3001]	dval-rmse:8.236527 
+[3011]	dval-rmse:8.236456 
+[3021]	dval-rmse:8.236390 
+[3031]	dval-rmse:8.236323 
+[3041]	dval-rmse:8.236255 
+[3051]	dval-rmse:8.236191 
+[3061]	dval-rmse:8.236125 
+[3071]	dval-rmse:8.236060 
+[3081]	dval-rmse:8.235994 
+[3091]	dval-rmse:8.235929 
+[3101]	dval-rmse:8.235866 
+[3111]	dval-rmse:8.235801 
+[3121]	dval-rmse:8.235740 
+[3131]	dval-rmse:8.235676 
+[3141]	dval-rmse:8.235616 
+[3151]	dval-rmse:8.235553 
+[3161]	dval-rmse:8.235493 
+[3171]	dval-rmse:8.235431 
+[3181]	dval-rmse:8.235371 
+[3191]	dval-rmse:8.235312 
+[3201]	dval-rmse:8.235252 
+[3211]	dval-rmse:8.235195 
+[3221]	dval-rmse:8.235136 
+[3231]	dval-rmse:8.235078 
+[3241]	dval-rmse:8.235021 
+[3251]	dval-rmse:8.234962 
+[3261]	dval-rmse:8.234905 
+[3271]	dval-rmse:8.234849 
+[3281]	dval-rmse:8.234793 
+[3291]	dval-rmse:8.234737 
+[3301]	dval-rmse:8.234681 
+[3311]	dval-rmse:8.234626 
+[3321]	dval-rmse:8.234573 
+[3331]	dval-rmse:8.234519 
+[3341]	dval-rmse:8.234464 
+[3351]	dval-rmse:8.234411 
+[3361]	dval-rmse:8.234358 
+[3371]	dval-rmse:8.234308 
+[3381]	dval-rmse:8.234254 
+[3391]	dval-rmse:8.234204 
+[3401]	dval-rmse:8.234151 
+[3411]	dval-rmse:8.234101 
+[3421]	dval-rmse:8.234049 
+[3431]	dval-rmse:8.233999 
+[3441]	dval-rmse:8.233950 
+[3451]	dval-rmse:8.233901 
+[3461]	dval-rmse:8.233850 
+[3471]	dval-rmse:8.233801 
+[3481]	dval-rmse:8.233753 
+[3491]	dval-rmse:8.233704 
+[3501]	dval-rmse:8.233655 
+[3511]	dval-rmse:8.233607 
+[3521]	dval-rmse:8.233561 
+[3531]	dval-rmse:8.233513 
+[3541]	dval-rmse:8.233466 
+[3551]	dval-rmse:8.233420 
+[3561]	dval-rmse:8.233374 
+[3571]	dval-rmse:8.233328 
+[3581]	dval-rmse:8.233283 
+[3591]	dval-rmse:8.233238 
+[3601]	dval-rmse:8.233192 
+[1421]	dval-rmse:8.255498 
+[3621]	dval-rmse:8.233103 
+[3631]	dval-rmse:8.233058 
+[3641]	dval-rmse:8.233015 
+[3651]	dval-rmse:8.232972 
+[3661]	dval-rmse:8.232929 
+[3671]	dval-rmse:8.232886 
+[3681]	dval-rmse:8.232844 
+[3691]	dval-rmse:8.232801 
+[3701]	dval-rmse:8.232759 
+[3711]	dval-rmse:8.232719 
+[3721]	dval-rmse:8.232677 
+[3731]	dval-rmse:8.232635 
+[3741]	dval-rmse:8.232594 
+[3751]	dval-rmse:8.232553 
+[3761]	dval-rmse:8.232510 
+[3771]	dval-rmse:8.232473 
+[3781]	dval-rmse:8.232431 
+[3791]	dval-rmse:8.232392 
+[3801]	dval-rmse:8.232354 
+[3811]	dval-rmse:8.232314 
+[3821]	dval-rmse:8.232276 
+[3831]	dval-rmse:8.232238 
+[3841]	dval-rmse:8.232199 
+[3851]	dval-rmse:8.232160 
+[3861]	dval-rmse:8.232122 
+[3871]	dval-rmse:8.232084 
+[3881]	dval-rmse:8.232048 
+[3891]	dval-rmse:8.232010 
+[3901]	dval-rmse:8.231973 
+[3911]	dval-rmse:8.231937 
+[3921]	dval-rmse:8.231900 
+[3931]	dval-rmse:8.231865 
+[3941]	dval-rmse:8.231827 
+[3951]	dval-rmse:8.231792 
+[3961]	dval-rmse:8.231757 
+[3971]	dval-rmse:8.231721 
+[3981]	dval-rmse:8.231684 
+[3991]	dval-rmse:8.231651 
+[4001]	dval-rmse:8.231617 
+[4011]	dval-rmse:8.231582 
+[4021]	dval-rmse:8.231547 
+[4031]	dval-rmse:8.231513 
+[4041]	dval-rmse:8.231478 
+[4051]	dval-rmse:8.231445 
+[4061]	dval-rmse:8.231412 
+[4071]	dval-rmse:8.231381 
+[4081]	dval-rmse:8.231346 
+[4091]	dval-rmse:8.231314 
+[4101]	dval-rmse:8.231280 
+[4111]	dval-rmse:8.231250 
+[4121]	dval-rmse:8.231217 
+[4131]	dval-rmse:8.231184 
+[4141]	dval-rmse:8.231154 
+[4151]	dval-rmse:8.231122 
+[4161]	dval-rmse:8.231089 
+[4171]	dval-rmse:8.231060 
+[4181]	dval-rmse:8.231027 
+[4191]	dval-rmse:8.230997 
+[4201]	dval-rmse:8.230965 
+[4211]	dval-rmse:8.230936 
+[4221]	dval-rmse:8.230907 
+[4231]	dval-rmse:8.230875 
+[4241]	dval-rmse:8.230845 
+[4251]	dval-rmse:8.230815 
+[4261]	dval-rmse:8.230784 
+[4271]	dval-rmse:8.230757 
+[4281]	dval-rmse:8.230728 
+[4291]	dval-rmse:8.230698 
+[4301]	dval-rmse:8.230669 
+[4311]	dval-rmse:8.230642 
+[4321]	dval-rmse:8.230615 
+[4331]	dval-rmse:8.230585 
+[4341]	dval-rmse:8.230557 
+[4351]	dval-rmse:8.230528 
+[4361]	dval-rmse:8.230502 
+[4371]	dval-rmse:8.230472 
+[4381]	dval-rmse:8.230446 
+[4391]	dval-rmse:8.230417 
+[4401]	dval-rmse:8.230391 
+[4411]	dval-rmse:8.230364 
+[4421]	dval-rmse:8.230338 
+[4431]	dval-rmse:8.230311 
+[4441]	dval-rmse:8.230283 
+[4451]	dval-rmse:8.230258 
+[4461]	dval-rmse:8.230231 
+[4471]	dval-rmse:8.230205 
+[4481]	dval-rmse:8.230179 
+[4491]	dval-rmse:8.230154 
+[4501]	dval-rmse:8.230128 
+[4511]	dval-rmse:8.230102 
+[4521]	dval-rmse:8.230077 
+[4531]	dval-rmse:8.230053 
+[4541]	dval-rmse:8.230028 
+[4551]	dval-rmse:8.230003 
+[4561]	dval-rmse:8.229979 
+[4571]	dval-rmse:8.229953 
+[4581]	dval-rmse:8.229929 
+[4591]	dval-rmse:8.229904 
+[4601]	dval-rmse:8.229880 
+[4611]	dval-rmse:8.229858 
+[4621]	dval-rmse:8.229833 
+[4631]	dval-rmse:8.229809 
+[4641]	dval-rmse:8.229787 
+[4651]	dval-rmse:8.229762 
+[4661]	dval-rmse:8.229740 
+[4671]	dval-rmse:8.229716 
+[4681]	dval-rmse:8.229693 
+[4691]	dval-rmse:8.229670 
+[4701]	dval-rmse:8.229646 
+[4711]	dval-rmse:8.229625 
+[4721]	dval-rmse:8.229601 
+[4731]	dval-rmse:8.229580 
+[4741]	dval-rmse:8.229557 
+[4751]	dval-rmse:8.229533 
+[4761]	dval-rmse:8.229514 
+[4771]	dval-rmse:8.229490 
+[4781]	dval-rmse:8.229468 
+[4791]	dval-rmse:8.229447 
+[4801]	dval-rmse:8.229426 
+[4811]	dval-rmse:8.229404 
+[4821]	dval-rmse:8.229383 
+[4831]	dval-rmse:8.229361 
+[4841]	dval-rmse:8.229343 
+[4851]	dval-rmse:8.229320 
+[4861]	dval-rmse:8.229298 
+[4871]	dval-rmse:8.229277 
+[4881]	dval-rmse:8.229258 
+[4891]	dval-rmse:8.229237 
+[4901]	dval-rmse:8.229215 
+[4911]	dval-rmse:8.229197 
+[4921]	dval-rmse:8.229175 
+[4931]	dval-rmse:8.229156 
+[4941]	dval-rmse:8.229137 
+[4951]	dval-rmse:8.229115 
+[4961]	dval-rmse:8.229097 
+[4971]	dval-rmse:8.229077 
+[4981]	dval-rmse:8.229058 
+[4991]	dval-rmse:8.229038 
+[5000]	dval-rmse:8.229020 
+[1]	dval-rmse:49.062106 
+  [11]	dval-rmse:29.532834 
+[21]	dval-rmse:17.814621 
+  [31]	dval-rmse:10.780020 
+                                                                                  [41]	dval-rmse:6.558697 
+ 
+[1561]	dval-rmse:8.251833 
+[1571]	dval-rmse:8.251595 
+[1581]	dval-rmse:8.251362 
+[1591]	dval-rmse:8.251131 
+[1601]	dval-rmse:8.250903 
+[1611]	dval-rmse:8.250679 
+[1621]	dval-rmse:8.250459 
+[1631]	dval-rmse:8.250238 
+[1641]	dval-rmse:8.250024 
+[1651]	dval-rmse:8.249810 
+[1661]	dval-rmse:8.249600 
+[1671]	dval-rmse:8.249391 
+[1681]	dval-rmse:8.249187 
+[1691]	dval-rmse:8.248984 
+[1701]	dval-rmse:8.248783 
+[1711]	dval-rmse:8.248586 
+[1721]	dval-rmse:8.248390 
+[1731]	dval-rmse:8.248196 
+[1741]	dval-rmse:8.248006 
+[1751]	dval-rmse:8.247818 
+[1761]	dval-rmse:8.247632 
+[1771]	dval-rmse:8.247447 
+[1781]	dval-rmse:8.247267 
+[1791]	dval-rmse:8.247088 
+[1801]	dval-rmse:8.246910 
+[1811]	dval-rmse:8.246736 
+[1821]	dval-rmse:8.246561 
+[1831]	dval-rmse:8.246391 
+[1841]	dval-rmse:8.246222 
+[1851]	dval-rmse:8.246053 
+[1861]	dval-rmse:8.245888 
+[1871]	dval-rmse:8.245725 
+[1881]	dval-rmse:8.245563 
+[1891]	dval-rmse:8.245402 
+[1901]	dval-rmse:8.245245 
+[1911]	dval-rmse:8.245088 
+[1921]	dval-rmse:8.244934 
+[1931]	dval-rmse:8.244781 
+[1941]	dval-rmse:8.244630 
+[1951]	dval-rmse:8.244481 
+[1961]	dval-rmse:8.244336 
+[1971]	dval-rmse:8.244187 
+[1981]	dval-rmse:8.244044 
+[1991]	dval-rmse:8.243901 
+[2001]	dval-rmse:8.243758 
+[2011]	dval-rmse:8.243619 
+[2021]	dval-rmse:8.243480 
+[2031]	dval-rmse:8.243345 
+[2041]	dval-rmse:8.243207 
+[2051]	dval-rmse:8.243074 
+[2061]	dval-rmse:8.242943 
+[2071]	dval-rmse:8.242812 
+[2081]	dval-rmse:8.242681 
+[2091]	dval-rmse:8.242553 
+[2101]	dval-rmse:8.242426 
+[2111]	dval-rmse:8.242300 
+[2121]	dval-rmse:8.242176 
+[2131]	dval-rmse:8.242051 
+[2141]	dval-rmse:8.241931 
+[2151]	dval-rmse:8.241809 
+[2161]	dval-rmse:8.241692 
+[2171]	dval-rmse:8.241572 
+[2181]	dval-rmse:8.241455 
+[2191]	dval-rmse:8.241339 
+[2201]	dval-rmse:8.241224 
+[2211]	dval-rmse:8.241110 
+[2221]	dval-rmse:8.240998 
+[2231]	dval-rmse:8.240886 
+[2241]	dval-rmse:8.240777 
+[2251]	dval-rmse:8.240666 
+[2261]	dval-rmse:8.240558 
+[2271]	dval-rmse:8.240450 
+[2281]	dval-rmse:8.240345 
+[2291]	dval-rmse:8.240240 
+[2301]	dval-rmse:8.240136 
+[2311]	dval-rmse:8.240033 
+[2321]	dval-rmse:8.239931 
+[2331]	dval-rmse:8.239830 
+[2341]	dval-rmse:8.239730 
+[2351]	dval-rmse:8.239629 
+[2361]	dval-rmse:8.239530 
+[2371]	dval-rmse:8.239434 
+[2381]	dval-rmse:8.239337 
+[2391]	dval-rmse:8.239239 
+[2401]	dval-rmse:8.239147 
+[2411]	dval-rmse:8.239053 
+[2421]	dval-rmse:8.238959 
+[2431]	dval-rmse:8.238866 
+[2441]	dval-rmse:8.238774 
+[2451]	dval-rmse:8.238685 
+[2461]	dval-rmse:8.238595 
+[2471]	dval-rmse:8.238506 
+[2481]	dval-rmse:8.238416 
+[2491]	dval-rmse:8.238331 
+[2501]	dval-rmse:8.238243 
+[2511]	dval-rmse:8.238158 
+[2521]	dval-rmse:8.238071 
+[2531]	dval-rmse:8.237988 
+[2541]	dval-rmse:8.237904 
+[2551]	dval-rmse:8.237820 
+[2561]	dval-rmse:8.237741 
+[2571]	dval-rmse:8.237658 
+[2581]	dval-rmse:8.237576 
+[2591]	dval-rmse:8.237497 
+[2601]	dval-rmse:8.237418 
+[2611]	dval-rmse:8.237339 
+[2621]	dval-rmse:8.237260 
+[2631]	dval-rmse:8.237183 
+[2641]	dval-rmse:8.237107 
+[2651]	dval-rmse:8.237029 
+[2661]	dval-rmse:8.236954 
+[2671]	dval-rmse:8.236880 
+[2681]	dval-rmse:8.236806 
+[2691]	dval-rmse:8.236733 
+[2701]	dval-rmse:8.236661 
+[2711]	dval-rmse:8.236587 
+[2721]	dval-rmse:8.236517 
+[2731]	dval-rmse:8.236445 
+[2741]	dval-rmse:8.236375 
+[2751]	dval-rmse:8.236304 
+[2761]	dval-rmse:8.236236 
+[2771]	dval-rmse:8.236167 
+[2781]	dval-rmse:8.236099 
+[2791]	dval-rmse:8.236031 
+[2801]	dval-rmse:8.235963 
+[2811]	dval-rmse:8.235896 
+[2821]	dval-rmse:8.235831 
+[2831]	dval-rmse:8.235765 
+[2841]	dval-rmse:8.235699 
+[2851]	dval-rmse:8.235635 
+[2861]	dval-rmse:8.235572 
+[2871]	dval-rmse:8.235509 
+[2881]	dval-rmse:8.235445 
+[2891]	dval-rmse:8.235383 
+[2901]	dval-rmse:8.235321 
+[2911]	dval-rmse:8.235259 
+[2921]	dval-rmse:8.235198 
+[2931]	dval-rmse:8.235136 
+[2941]	dval-rmse:8.235077 
+[2951]	dval-rmse:8.235017 
+[2961]	dval-rmse:8.234958 
+[2971]	dval-rmse:8.234901 
+[2981]	dval-rmse:8.234841 
+[2991]	dval-rmse:8.234784 
+[3001]	dval-rmse:8.234726 
+[3011]	dval-rmse:8.234670 
+[3021]	dval-rmse:8.234612 
+[3031]	dval-rmse:8.234559 
+[3041]	dval-rmse:8.234502 
+[3051]	dval-rmse:8.234448 
+[3061]	dval-rmse:8.234392 
+[3071]	dval-rmse:8.234337 
+[3081]	dval-rmse:8.234283 
+[3091]	dval-rmse:8.234228 
+[3101]	dval-rmse:8.234177 
+[3111]	dval-rmse:8.234123 
+[3121]	dval-rmse:8.234073 
+[3131]	dval-rmse:8.234019 
+[3141]	dval-rmse:8.233967 
+[3151]	dval-rmse:8.233917 
+[3161]	dval-rmse:8.233864 
+[3171]	dval-rmse:8.233815 
+[3181]	dval-rmse:8.233764 
+[3191]	dval-rmse:8.233714 
+[3201]	dval-rmse:8.233667 
+[3211]	dval-rmse:8.233618 
+[3221]	dval-rmse:8.233569 
+[3231]	dval-rmse:8.233520 
+[3241]	dval-rmse:8.233471 
+[3251]	dval-rmse:8.233424 
+[3261]	dval-rmse:8.233377 
+[3271]	dval-rmse:8.233331 
+[3281]	dval-rmse:8.233286 
+[3291]	dval-rmse:8.233239 
+[3301]	dval-rmse:8.233191 
+[3311]	dval-rmse:8.233145 
+[3321]	dval-rmse:8.233101 
+[3331]	dval-rmse:8.233055 
+[3341]	dval-rmse:8.233012 
+[3351]	dval-rmse:8.232967 
+[3361]	dval-rmse:8.232922 
+[3371]	dval-rmse:8.232880 
+[3381]	dval-rmse:8.232835 
+[3391]	dval-rmse:8.232792 
+[3401]	dval-rmse:8.232751 
+[3411]	dval-rmse:8.232709 
+[3421]	dval-rmse:8.232664 
+[3431]	dval-rmse:8.232623 
+[3441]	dval-rmse:8.232581 
+[3451]	dval-rmse:8.232540 
+[3461]	dval-rmse:8.232500 
+[3471]	dval-rmse:8.232459 
+[3481]	dval-rmse:8.232419 
+[3491]	dval-rmse:8.232377 
+[3501]	dval-rmse:8.232339 
+[3511]	dval-rmse:8.232297 
+[3521]	dval-rmse:8.232259 
+[3531]	dval-rmse:8.232219 
+[3541]	dval-rmse:8.232180 
+[3551]	dval-rmse:8.232141 
+[3561]	dval-rmse:8.232102 
+[3571]	dval-rmse:8.232064 
+[3581]	dval-rmse:8.232028 
+[3591]	dval-rmse:8.231989 
+[3601]	dval-rmse:8.231953 
+[3611]	dval-rmse:8.231916 
+[3621]	dval-rmse:8.231878 
+[3631]	dval-rmse:8.231843 
+[3641]	dval-rmse:8.231806 
+[3651]	dval-rmse:8.231771 
+[3661]	dval-rmse:8.231734 
+[3671]	dval-rmse:8.231697 
+[3681]	dval-rmse:8.231663 
+[3691]	dval-rmse:8.231628 
+[3701]	dval-rmse:8.231593 
+[3711]	dval-rmse:8.231558 
+[3721]	dval-rmse:8.231525 
+[3731]	dval-rmse:8.231489 
+[3741]	dval-rmse:8.231455 
+[3751]	dval-rmse:8.231422 
+[3761]	dval-rmse:8.231388 
+[3771]	dval-rmse:8.231355 
+[3781]	dval-rmse:8.231321 
+[3791]	dval-rmse:8.231287 
+[3801]	dval-rmse:8.231254 
+[3811]	dval-rmse:8.231223 
+[3821]	dval-rmse:8.231190 
+[3831]	dval-rmse:8.231159 
+[3841]	dval-rmse:8.231127 
+[3851]	dval-rmse:8.231095 
+[3861]	dval-rmse:8.231064 
+[3871]	dval-rmse:8.231032 
+[3881]	dval-rmse:8.231002 
+[3891]	dval-rmse:8.230969 
+[3901]	dval-rmse:8.230940 
+[3911]	dval-rmse:8.230907 
+[3921]	dval-rmse:8.230879 
+[3931]	dval-rmse:8.230849 
+[3941]	dval-rmse:8.230819 
+[3951]	dval-rmse:8.230788 
+[3961]	dval-rmse:8.230759 
+[3971]	dval-rmse:8.230729 
+[3981]	dval-rmse:8.230702 
+[3991]	dval-rmse:8.230672 
+[4001]	dval-rmse:8.230643 
+[4011]	dval-rmse:8.230613 
+[4021]	dval-rmse:8.230585 
+[4031]	dval-rmse:8.230556 
+[4041]	dval-rmse:8.230530 
+[4051]	dval-rmse:8.230502 
+[4061]	dval-rmse:8.230473 
+[4071]	dval-rmse:8.230446 
+[4081]	dval-rmse:8.230420 
+[4091]	dval-rmse:8.230391 
+[4101]	dval-rmse:8.230364 
+[4111]	dval-rmse:8.230338 
+[4121]	dval-rmse:8.230310 
+[4131]	dval-rmse:8.230284 
+[4141]	dval-rmse:8.230258 
+[4151]	dval-rmse:8.230231 
+[4161]	dval-rmse:8.230205 
+[4171]	dval-rmse:8.230179 
+[4181]	dval-rmse:8.230154 
+[4191]	dval-rmse:8.230128 
+[4201]	dval-rmse:8.230102 
+[4211]	dval-rmse:8.230078 
+[4221]	dval-rmse:8.230051 
+[4231]	dval-rmse:8.230026 
+[4241]	dval-rmse:8.230001 
+[4251]	dval-rmse:8.229976 
+[4261]	dval-rmse:8.229952 
+[4271]	dval-rmse:8.229928 
+[4281]	dval-rmse:8.229904 
+[4291]	dval-rmse:8.229880 
+[4301]	dval-rmse:8.229855 
+[4311]	dval-rmse:8.229832 
+[4321]	dval-rmse:8.229807 
+[4331]	dval-rmse:8.229782 
+[4341]	dval-rmse:8.229761 
+[4351]	dval-rmse:8.229736 
+[4361]	dval-rmse:8.229713 
+[4371]	dval-rmse:8.229692 
+[4381]	dval-rmse:8.229668 
+[4391]	dval-rmse:8.229645 
+[4401]	dval-rmse:8.229622 
+[4411]	dval-rmse:8.229601 
+[4421]	dval-rmse:8.229577 
+[4431]	dval-rmse:8.229554 
+[4441]	dval-rmse:8.229531 
+[4451]	dval-rmse:8.229511 
+[4461]	dval-rmse:8.229489 
+[4471]	dval-rmse:8.229466 
+[4481]	dval-rmse:8.229444 
+[4491]	dval-rmse:8.229423 
+[4501]	dval-rmse:8.229402 
+[4511]	dval-rmse:8.229381 
+[4521]	dval-rmse:8.229359 
+[4531]	dval-rmse:8.229338 
+[4541]	dval-rmse:8.229318 
+[4551]	dval-rmse:8.229296 
+[4561]	dval-rmse:8.229275 
+[4571]	dval-rmse:8.229254 
+[4581]	dval-rmse:8.229234 
+[4591]	dval-rmse:8.229214 
+[4601]	dval-rmse:8.229194 
+[4611]	dval-rmse:8.229174 
+[4621]	dval-rmse:8.229154 
+[4631]	dval-rmse:8.229134 
+[4641]	dval-rmse:8.229113 
+[4651]	dval-rmse:8.229094 
+[4661]	dval-rmse:8.229074 
+[4671]	dval-rmse:8.229057 
+[4681]	dval-rmse:8.229036 
+[4691]	dval-rmse:8.229017 
+[4701]	dval-rmse:8.228998 
+[4711]	dval-rmse:8.228978 
+[4721]	dval-rmse:8.228960 
+[4731]	dval-rmse:8.228941 
+[4741]	dval-rmse:8.228921 
+[4751]	dval-rmse:8.228905 
+[4761]	dval-rmse:8.228885 
+[4771]	dval-rmse:8.228866 
+[4781]	dval-rmse:8.228847 
+[4791]	dval-rmse:8.228830 
+[4801]	dval-rmse:8.228811 
+[4811]	dval-rmse:8.228792 
+[4821]	dval-rmse:8.228776 
+[4831]	dval-rmse:8.228758 
+[4841]	dval-rmse:8.228742 
+[4851]	dval-rmse:8.228722 
+[4861]	dval-rmse:8.228704 
+[4871]	dval-rmse:8.228686 
+[4881]	dval-rmse:8.228671 
+[4891]	dval-rmse:8.228652 
+[4901]	dval-rmse:8.228636 
+[4911]	dval-rmse:8.228618 
+[4921]	dval-rmse:8.228602 
+[4931]	dval-rmse:8.228584 
+[4941]	dval-rmse:8.228566 
+[4951]	dval-rmse:8.228551 
+[4961]	dval-rmse:8.228534 
+[4971]	dval-rmse:8.228516 
+[4981]	dval-rmse:8.228501 
+[4991]	dval-rmse:8.228484 
+[5000]	dval-rmse:8.228469 
+[1]	dval-rmse:49.062106 
+[11]	dval-rmse:29.532834 
+                          [21]	dval-rmse:17.814621 
+[31]	dval-rmse:10.780020 
+[41]	dval-rmse:6.558697 
+                           [51]	dval-rmse:4.031814 
+                                                    [61]	dval-rmse:2.520417 
+                                                                              [71]	dval-rmse:1.614227 
+                                                                              [81]	dval-rmse:1.073924 
+                                                                              [91]	dval-rmse:0.750231 
+                                                                                                                                                                                                                                                       [101]	dval-rmse:0.560650 
+[111]	dval-rmse:0.447806 
+[121]	dval-rmse:0.375466 
+[131]	dval-rmse:0.325853 
+[141]	dval-rmse:0.284507 
+[151]	dval-rmse:0.254091 
+[161]	dval-rmse:0.228590 
+[171]	dval-rmse:0.212305 
+[181]	dval-rmse:0.198417 
+[191]	dval-rmse:0.184203 
+[201]	dval-rmse:0.173092 
+[211]	dval-rmse:0.162810 
+[221]	dval-rmse:0.154708 
+[231]	dval-rmse:0.146420 
+[241]	dval-rmse:0.136502 
+[251]	dval-rmse:0.128400 
+[261]	dval-rmse:0.122432 
+[271]	dval-rmse:0.117004 
+[281]	dval-rmse:0.110354 
+[291]	dval-rmse:0.105915 
+[300]	dval-rmse:0.102791 
+Error in ic.glmnet(x = vect$x, y = vect$y, family = "gaussian", alpha = 1) : 
+  could not find function "ic.glmnet"
+Calls: system.time -> custfit.lasso
+Timing stopped at: 0.001 0 0.058
+Execution halted

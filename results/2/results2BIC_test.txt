@@ -1,0 +1,4 @@
+Results for dataset 2 (BIC) (TEST):
+
+RMSE:                               MAE:                                Corr:                              
+1.9588825922123492                  1.4231907753376394                  0.7804017452276594                 
