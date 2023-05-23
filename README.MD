@@ -1,7 +1,7 @@
 ## BGNLM in PyTorch
-Implementation of BGNLM in PyTorch. Based on my Master's thesis.
+Implementation of BGNLM in PyTorch.
 
-Scripts and results based on datasets from the thesis.
+Scripts and results are made to fit the datasets from my Master's thesis.
 
 ## Usage
 To run the scripts, make sure all the required modules are loaded.
